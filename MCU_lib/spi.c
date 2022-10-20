@@ -53,7 +53,7 @@ void SpiInitAltParent(uint8_t clockRate, bool msbFirst, bool useSSAsInput)
 
 
 /**
- * \brief Initializes the chip as a child/slave for SPI
+ * \brief Initializes the chip as a child/client for the ALT SPI
  */
 void SpiInitAltChild() 
 {
@@ -65,22 +65,20 @@ void SpiInitAltChild()
 		//Make sure that SPI is enabled in the power register
 		PRR0 &= ~(1 << PRSPI);
 	#endif
-
+	
+	//Select the alt spi
 	SPI_select_alt();
 
+	//Set the directions of the SPI pins
+	PIN_INPUT(MOSI_A_PIN);
+	PIN_INPUT(SCK_A_PIN);
+	PIN_OUTPUT(MISO_A_PIN);
 
-	//Set the direction of the mosi and sck value to output, all others input
-	PIN_OUTPUT(MOSI_A_PIN);
-	PIN_OUTPUT(SCK_A_PIN);
-	PIN_INPUT(MISO_A_PIN);
-
-	//As a child the SS pin will always be input. When low, spi is activated. When high, all pins are inputs and spi is set to passive
-	PIN_LOW(SS_A_PIN);
+	//As a child the SS pin will always be input. When low, spi is activated. When high, all pins are inputs and spi is set to passive.
+	PIN_HIGH(SS_A_PIN);
 	PIN_INPUT(SS_A_PIN);
-
-
-	//Set controls to Enable SPI as master, sets the bit for MSB or LSB to the one passed
-	//And sets the value for the clock rate to the clock rate passed
+	
+	//Set controls to Enable SPI as child
 	SPCR = ((1 << SPE));
 }
 
@@ -117,6 +115,7 @@ void SpiInitParent(uint8_t clockRate, bool msbFirst, bool useSSAsInput)
 	PIN_OUTPUT(MOSI_PIN);
 	PIN_OUTPUT(SCK_PIN);
 	PIN_INPUT(MISO_PIN);
+	
 	PIN_HIGH(SS_PIN);
 
 	if(useSSAsInput == true) 
@@ -139,7 +138,7 @@ void SpiInitParent(uint8_t clockRate, bool msbFirst, bool useSSAsInput)
 
 
 /**
- * \brief Initializes the chip as a child/slave for SPI
+ * \brief Initializes the chip as a child/client for SPI
  */
 void SpiInitChild() 
 {
@@ -158,18 +157,17 @@ void SpiInitChild()
 	#endif
 
 
-	//Set the direction of the mosi and sck value to output, all others input
-	PIN_OUTPUT(MOSI_PIN);
-	PIN_OUTPUT(SCK_PIN);
-	PIN_INPUT(MISO_PIN);
+	//Set the directions of the SPI pins
+	PIN_INPUT(MOSI_PIN);
+	PIN_INPUT(SCK_PIN);
+	PIN_OUTPUT(MISO_PIN);
 
 	//As a child the SS pin will always be input. When low, spi is activated. When high, all pins are inputs and spi is set to passive.
-	PIN_LOW(SS_PIN);
+	PIN_HIGH(SS_PIN);
 	PIN_INPUT(SS_PIN);
 
 
-	//Set controls to Enable SPI as master, sets the bit for MSB or LSB to the one passed
-	//And sets the value for the clock rate to the clock rate passed
+	//Set controls to Enable SPI as child
 	SPCR = ((1 << SPE));
 }
 
@@ -188,6 +186,60 @@ void SpiTransmit(uint8_t data)
 
     //Wait for completed transmission
     while(!(SPSR & (1 << SPIF)));
+}
+
+
+
+/**
+ * Send and receives a byte
+ * \param transmissionByte
+ * \return received byte
+ */
+unsigned char SpiExchangeByte(unsigned char transmissionByte)
+{
+	
+    //Load data into the register
+    SPDR = transmissionByte;
+    
+    //Wait for completed transmission
+    while(!(SPSR & (1 << SPIF)));
+    
+    //Return the data register value
+    return SPDR;
+    
+    
+}
+
+
+
+/**
+ * Send and receives a byte
+ * \param transmissionByte
+ * \return received byte
+ */
+unsigned char SpiExchangeByteOrTimeout(unsigned char transmissionByte, uint16_t timeoutCount)
+{
+    //Load data into the register
+    SPDR = transmissionByte;
+    
+    //Wait for completed transmission
+    while(!(SPSR & (1 << SPIF)))
+	{
+		//Decrease the timeout, break when appropriate, if timeout error
+		if(timeoutCount <= 0)
+		{
+			break;
+		}
+		else
+		{
+			timeoutCount--;
+		}
+	}
+    
+    //Return the data register value
+    return SPDR;
+    
+    
 }
 
 

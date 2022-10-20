@@ -1,10 +1,26 @@
 /**
  * \file mcuUtils.h
  * \author Tim Robbins
- * \brief Utilities file for microcontrollers
+ * \brief Utilities file for microcontrollers \n
+ * CONFIGURATION OPTIONS \n
+ * If defined as 1 in this file, MCU_UTILS_USE_INLINE will cause many of the macro functions to be inline functions, some of these as always inline. \n
+ * With some of these macros being useful for more than 1 data type, these will not be included in the inline functionalities. \n
+ * This is, for the most part, referencing the bit manipulations. \n
+ * Currently, this only changes the char roll over functions and the sleep functions
  */ 
 #ifndef MCUUTILS_H_
 #define MCUUTILS_H_
+
+
+///If the macros should be inline functions instead
+#define MCU_UTILS_USE_INLINE	0
+
+
+#ifdef	__cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
+
 
 #ifdef __AVR
 
@@ -136,35 +152,34 @@
 #define FULL_LOW            0x00
 
 ///Macro shorthand for unsigned char
-#define uchar 	unsigned char
+#define uchar 				unsigned char
 
 ///Macro shorthand for unsigned short
-#define usht  	unsigned short
+#define usht  				unsigned short
 
 ///Macro shorthand for an unsigned integer
-#define uint 	unsigned int
+#define uint 				unsigned int
 
 ///Macro shorthand for unsigned long
-#define ulng	unsigned long
+#define ulng				unsigned long
 
 ///Math value for PI
-#define PI 3.1415926535897932384626433832795
+#define PI 					3.1415926535897932384626433832795
 
 ///Math value for 1/2 PI
-#define HALF_PI 1.5707963267948966192313216916398
+#define HALF_PI 			1.5707963267948966192313216916398
 
 ///Math value for PI * 2
-#define TWO_PI 6.283185307179586476925286766559
+#define TWO_PI 				6.283185307179586476925286766559
 
 ///Constant value for converting degrees to radians
-#define DEG_TO_RAD 0.017453292519943295769236907684886
+#define DEG_TO_RAD 			0.017453292519943295769236907684886
 
 ///Constant value for converting radians to degrees
-#define RAD_TO_DEG 57.295779513082320876798154814105
+#define RAD_TO_DEG 			57.295779513082320876798154814105
 
 ///Value for a EULER
-#define EULER 2.718281828459045235360287471352
-
+#define EULER 				2.718281828459045235360287471352
 
 ///Swaps the char values high and low nibble
 #define swapNibble(value)	(((value & 0xF0) >> 4) | ((value & 0x0F) << 4))
@@ -221,47 +236,29 @@
 #endif
 
 
-///Returns the lower byte in a short/word/int16_t
+///Returns the lower byte in a short/word/int16_t or larger
 #define lowByte(shortVal)   ((shortVal) & 0xFF)
 
-///Returns the high byte in a short/word/int16_t
+///Returns the high byte in a short/word/int16_t or larger
 #define highByte(shortVal)  ((shortVal & 0xFF00) >> 8)
 
-///Returns the lower bits
+///Returns the lower bits of a byte
 #define lowNibble(byteVal)	((byteVal) & 0x0F)
 
-///Returns the higher bits
+///Returns the higher bits of a byte
 #define highNibble(byteVal)	((byteVal & 0xF0) >> 4)
 
-///Clears the lower bits
+///Clears the lower bits of a byte
 #define clearLowerNibble(byteVal)	byteVal &= ~(0x0F)
 
 ///Clears the upper bits
 #define clearUpperNibble(byteVal)	byteVal &= ~(0xF0)
 
-///Clears the low byte in a word/short/uint16_t
+///Clears the low byte in a word/short/uint16_t or larger
 #define clearLowerByte(shortInt)	shortInt &= ~0x00FF
 
-///\Clears the high byte in a word/short/uint16_t
+///\Clears the high byte in a word/short/uint16_t or larger
 #define clearUpperByte(shortInt)	shortInt &= ~0xFF00
-
-///8 bit roll over right bit shift
-#define cror(byte)	if(readBit(byte,0)) {clearBit(byte,0); byte = byte >> 1; setBit(byte,7); } else byte = byte >> 1
-
-///8 bit roll over right bit shift
-#define crol(byte)	if(readBit(byte,7)) {clearBit(byte,7); byte = byte << 1; setBit(byte,0); } else byte = byte << 1
-
-///8 bit roll over right bit shift, high bits only
-#define crorH(byte)	if(readBit(byte,4)) {clearBit(byte,4); byte = (((byte & 0xF0) >> 1) | (byte & 0x0F)); setBit(byte,7); } else byte = (((byte & 0xF0) >> 1) | (byte & 0x0F))
-
-///8 bit roll over right bit shift, high bits only
-#define crolH(byte)	if(readBit(byte,7)) {clearBit(byte,7); byte = (((byte & 0xF0) << 1) | (byte & 0x0F)); setBit(byte,4); } else byte = (((byte & 0xF0) << 1) | (byte & 0x0F))
-
-///8 bit roll over right bit shift, low bits only
-#define crorL(byte)	if(readBit(byte,0)) {clearBit(byte,0); byte = (((byte & 0x0F) >> 1) | (byte & 0xF0)); setBit(byte,3); } else byte = (((byte & 0x0F) >> 1) | (byte & 0xF0))
-
-///8 bit roll over right bit shift, low bits only
-#define crolL(byte)	if(readBit(byte,3)) {clearBit(byte,3); byte = (((byte & 0x0F) << 1) | (byte & 0xF0)); setBit(byte,0); } else byte = (((byte & 0x0F) << 1) | (byte & 0xF0))
 
 ///Swap operation using no temp variable
 #define swap(a, b)	a ^= b; b ^= a; a ^= b
@@ -303,6 +300,203 @@
 ///Squares the value passed
 #define sqr(val)	(val*val)
 
+
+#if defined(MCU_UTILS_USE_INLINE) && MCU_UTILS_USE_INLINE == 1
+
+
+
+#ifdef SMCR
+
+
+/**
+ * \brief Enable sleep
+ */
+__attribute__((always_inline)) inline void sleep_enable() 
+{
+	SMCR |= (1 << SE);
+}
+
+
+/**
+ * \brief Disable sleep
+ */
+__attribute__((always_inline)) inline void sleep_disable() 
+{
+	SMCR &= ~(1 << SE);
+}
+
+
+/**
+ * \brief Set sleep mode to use when entering sleep state
+ *
+ * \param mode Sleep mode
+ */
+inline void sleep_set_mode(uint8_t mode) {
+	SMCR = (mode | (SMCR & ~((1 << SM0) | (1 << SM1) | (1 << SM2))));
+}
+
+#endif
+
+
+
+///8 bit roll over right bit shift
+inline char cror(char byte)	
+{
+	if(readBit(byte,0)) 
+	{
+		clearBit(byte,0); 
+		byte = byte >> 1; 
+		setBit(byte,7); 
+	} 
+	else 
+	{
+		byte = byte >> 1;
+	}
+
+	return byte;
+}
+
+///8 bit roll over right bit shift
+inline char crol(char byte)	
+{
+	if(readBit(byte,7)) 
+	{
+		clearBit(byte,7); 
+		byte = byte << 1; 
+		setBit(byte,0); 
+	} 
+	else 
+	{
+		byte = byte << 1;
+	}
+
+	return byte;
+}
+
+///8 bit roll over right bit shift, high bits only
+inline char crorH(char byte)	
+{
+	if(readBit(byte,4)) 
+	{
+		clearBit(byte,4); 
+		byte = (((byte & 0xF0) >> 1) | (byte & 0x0F)); 
+		setBit(byte,7); 
+	} 
+	else 
+	{
+		byte = (((byte & 0xF0) >> 1) | (byte & 0x0F));
+	}
+
+	return byte;
+}
+
+///8 bit roll over right bit shift, high bits only
+inline char crolH(char byte)	
+{
+	if(readBit(byte,7)) 
+	{
+		clearBit(byte,7); 
+		byte = (((byte & 0xF0) << 1) | (byte & 0x0F)); 
+		setBit(byte,4); 
+		} 
+		else 
+		{
+			byte = (((byte & 0xF0) << 1) | (byte & 0x0F));
+		}
+
+		return byte;
+}
+
+///8 bit roll over right bit shift, low bits only
+inline char crorL(char byte)	
+{
+	if(readBit(byte,0)) 
+	{
+		clearBit(byte,0); 
+		byte = (((byte & 0x0F) >> 1) | (byte & 0xF0)); 
+		setBit(byte,3); 
+	} 
+	else 
+	{
+		byte = (((byte & 0x0F) >> 1) | (byte & 0xF0));
+	}
+
+	return byte;
+}
+
+///8 bit roll over right bit shift, low bits only
+inline char crolL(char byte)
+{
+	if(readBit(byte,3)) 
+	{
+		clearBit(byte,3); 
+		byte = (((byte & 0x0F) << 1) | (byte & 0xF0)); 
+		setBit(byte,0); 
+	} 
+	else 
+	{
+		byte = (((byte & 0x0F) << 1) | (byte & 0xF0));
+	}
+
+	return byte;
+}
+
+
+
+
+#else
+
+///8 bit roll over right bit shift
+#define cror(byte)	if(readBit(byte,0)) {clearBit(byte,0); byte = byte >> 1; setBit(byte,7); } else byte = byte >> 1
+
+///8 bit roll over right bit shift
+#define crol(byte)	if(readBit(byte,7)) {clearBit(byte,7); byte = byte << 1; setBit(byte,0); } else byte = byte << 1
+
+///8 bit roll over right bit shift, high bits only
+#define crorH(byte)	if(readBit(byte,4)) {clearBit(byte,4); byte = (((byte & 0xF0) >> 1) | (byte & 0x0F)); setBit(byte,7); } else byte = (((byte & 0xF0) >> 1) | (byte & 0x0F))
+
+///8 bit roll over right bit shift, high bits only
+#define crolH(byte)	if(readBit(byte,7)) {clearBit(byte,7); byte = (((byte & 0xF0) << 1) | (byte & 0x0F)); setBit(byte,4); } else byte = (((byte & 0xF0) << 1) | (byte & 0x0F))
+
+///8 bit roll over right bit shift, low bits only
+#define crorL(byte)	if(readBit(byte,0)) {clearBit(byte,0); byte = (((byte & 0x0F) >> 1) | (byte & 0xF0)); setBit(byte,3); } else byte = (((byte & 0x0F) >> 1) | (byte & 0xF0))
+
+///8 bit roll over right bit shift, low bits only
+#define crolL(byte)	if(readBit(byte,3)) {clearBit(byte,3); byte = (((byte & 0x0F) << 1) | (byte & 0xF0)); setBit(byte,0); } else byte = (((byte & 0x0F) << 1) | (byte & 0xF0))
+
+#ifdef SMCR
+
+
+/**
+ * \brief Enable sleep
+ */
+#define sleep_enable() SMCR |= (1 << SE)
+
+
+/**
+ * \brief Disable sleep
+ */
+#define sleep_disable() SMCR &= ~(1 << SE)
+
+
+/**
+ * \brief Set sleep mode to use when entering sleep state
+ *
+ * \param mode Sleep mode
+ */
+#define sleep_set_mode(mode) SMCR = ((uint8_t)mode | (SMCR & ~((1 << SM0) | (1 << SM1) | (1 << SM2))))
+
+
+#endif
+
+#endif
+
+
+
+
+
+
+
 #if defined(F_CPU)
 
 ///Conversion for clock cycles per microsecond
@@ -321,10 +515,10 @@
 ///Calculates the average voltage from duty cycle
 #define averageVoltageFromDutyCycle(highOutputVoltage, lowOutputVoltage, dutyHigh, dutyLow) (((highOutputVoltage*dutyHigh)+(lowOutputVoltage*dutyLow))/(dutyHigh+dutyLow))
 
-///Converts microseconds to ticks 
+///Converts microseconds to ticks. Prescaler, generally 8
 #define microToTicks(_us, prescaler)    (( clockCyclesPerMicrosecond()* _us) / prescaler)     
 
-///Converts from ticks back to microseconds
+///Converts from ticks back to microseconds. Prescaler, generally 8
 #define ticksToMicro(_ticks, prescaler) (( (unsigned)_ticks * prescaler)/ clockCyclesPerMicrosecond() ) 
 
 ///Converts clock cycles to microseconds
@@ -338,6 +532,9 @@
 
 ///Converts microseconds to milliseconds
 #define microToMilliseconds(a) (clockCyclesToMicroseconds(a) * 1000)
+
+
+
 
 ///Helper macro for macro stringizing the plain text passed
 #define _STRINGIZE(x)		#x
@@ -444,30 +641,8 @@ _61,_62,_63,N,...) N
 #define REORDER_BITS(val, ...)				__REORDER_VALUE(val, __VA_ARGS__)
 
 
-#ifdef SMCR
-
-
-/**
- * \brief Enable sleep
- */
-#define sleep_enable() SMCR |= (1 << SE)
-
-
-/**
- * \brief Disable sleep
- */
-#define sleep_disable() SMCR &= ~(1 << SE)
-
-
-/**
- * \brief Set sleep mode to use when entering sleep state
- *
- * \param mode Sleep mode
- */
-#define sleep_set_mode(mode) SMCR = ((uint8_t)mode | (SMCR & ~((1 << SM0) | (1 << SM1) | (1 << SM2))))
-
-
-#endif
+///Sets a volatile pointer variable to a register. If passed as a parameter, do not use. Instead, pass as &register to the functions volatile <datatype> *register variable. For memory.
+#define setPointerAsRegister(p, r) p = &r
 
 
 /**
@@ -534,9 +709,22 @@ typedef union _BYTE_MASK_UNION {
 }ByteMask_t;
 
 
+/// @brief Union that splits a byte into nibbles
+typedef union _NIBBLE_SPLIT_UNION_
+{
+	unsigned char byte;
+	struct
+	{
+		volatile unsigned char nibbleA:4;
+		volatile unsigned char nibbleB:4;
 
-///Sets a volatile pointer variable to a register. If passed as a parameter, do not use. Instead, pass as &register to the functions volatile <datatype> *register variable. For memory.
-#define setPointerAsRegister(p, r) p = &r
+	} nibbles;
+	
+}NibbleSplit_t;
+
+
+
+
 
 
 extern uint8_t ConvertRangeToPercentage(uint16_t minValue, uint16_t maxValue, uint16_t value);
@@ -548,6 +736,10 @@ extern uint8_t ClockCountsFor8BitFreq(uint64_t systemFreq, uint16_t prescaler, u
 extern uint16_t ClockCountsFor16BitTime(uint64_t systemFreq, uint16_t prescaler, float seconds, uint16_t *overflowCounts);
 extern uint8_t ClockCountsFor8BitTime(uint64_t systemFreq, uint16_t prescaler, uint16_t seconds, uint16_t *overflowCounts);
 
+
+#ifdef	__cplusplus
+}
+#endif /* __cplusplus */
 
 
 

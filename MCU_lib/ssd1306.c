@@ -7,26 +7,41 @@
 #include "ssd1306.h"
 
 #if !defined(SSD1306_C) && defined(__INCLUDED_SSD1306__)
-#define SSD1306_C
+#define SSD1306_C	1
 
 
 #include <string.h>
 
 #if !defined(SSD1306_DRAW_IMMEDIATE) || SSD1306_DRAW_IMMEDIATE < 1
-static uint8_t SSD1306DisplayBuffer[8][128]; //Current max possible size, maybe need to fix this?
+
+static uint8_t SSD1306DisplayBuffer[SSD1306_HEIGHT/8][SSD1306_WIDTH]; //Current max possible size, maybe need to fix this?
+
+/**
+* \brief Writes directly to the buffer
+*
+*/
+void SSD1306WriteToBuffer(uint8_t data, unsigned char x, unsigned char y)
+{
+	if(y < SSD1306_HEIGHT && x < SSD1306_WIDTH)
+	{
+		SSD1306DisplayBuffer[y][x] = data;
+	}
+}
+
 #endif
-static uint8_t cursorPosX;
-static uint8_t cursorPosY;
-static uint8_t ssd1306csPinPositions[] =
+
+static uint16_t cursorPosX = 0;
+static uint16_t cursorPosY = 0;
+static const uint8_t ssd1306csPinPositions[] =
 {
   SSD1306_CS_PIN_POSITIONS  
 };
 
-static uint8_t currentDisplay;
+static uint8_t currentDisplay = 0;
 
 /**
  * Selects the currently active display from the display array
- * @param display The index of the display in the SSD1306_CS_PIN_POSITIONS macro
+ * \param display The index of the display in the SSD1306_CS_PIN_POSITIONS macro
  */
 void SSD1306SelectDisplay(uint8_t display)
 {
@@ -44,9 +59,9 @@ void SSD1306SelectDisplay(uint8_t display)
 
 /**
  * Initializes the OLED display. Chip select must be set before running this
- * @param displayOn if the display should start as on
- * @param newScreenWidth The width of the screen
- * @param newScreenHeight The height of the screen
+ * \param displayOn if the display should start as on
+ * \param newScreenWidth The width of the screen
+ * \param newScreenHeight The height of the screen
  */
 void SSD1306Initialize(bool displayOn, uint8_t currentDisplaySelection)
 {
@@ -54,18 +69,38 @@ void SSD1306Initialize(bool displayOn, uint8_t currentDisplaySelection)
     
     cursorPosX = 0;
     cursorPosY = 0;
-    currentDisplay = currentDisplaySelection;
+    
+	
+	
+	#if !defined(SSD1306_DRAW_IMMEDIATE) || SSD1306_DRAW_IMMEDIATE < 1
+	//SSD1306ClearBuffer();
+	
+	//Make sure buffer is cleared and initialized
+	for(uint8_t y, x = 0; y < SSD1306_HEIGHT; x++)
+	{
+		
+		if(x >= SSD1306_WIDTH)
+		{
+			x = 0;
+			y++;
+		}
+		SSD1306DisplayBuffer[y][x] = 0;
+	}
+	
+	#endif
     
     //Initialize the displays init sequences
 	uint8_t init_sequence [28] = {    // Initialization Sequence
 		SSD1306_CMD_DISPLAY_OFF,    // Display OFF (sleep mode)
 		
-		0x20, 0b00,      // Set Memory Addressing Mode
-						 // 00=Horizontal Addressing Mode; 01=Vertical Addressing Mode;
-						 // 10=Page Addressing Mode (RESET); 11=Invalid
-
+		0x20,			// Set Memory Addressing Mode
+		0b00,			// 00=Horizontal Addressing Mode; 01=Vertical Addressing Mode;
+						// 10=Page Addressing Mode (RESET); 11=Invalid
+						 
 		0xB0,            // Set Page Start Address for Page Addressing Mode, 0-7
+		
 		0xC8,            // Set COM Output Scan Direction
+		
 		0x00,            // --set low column address
 		0x10,            // --set high column address
 		0x40,            // --set start line address
@@ -74,7 +109,7 @@ void SSD1306Initialize(bool displayOn, uint8_t currentDisplaySelection)
 		0xA6,            // Set display mode. A6=Normal; A7=Inverse
 		0xA8, SSD1306_HEIGHT-1, // Set multiplex ratio(1 to 64)
 		0xA4,            // Output RAM to Display
-		// 0xA4=Output follows RAM content; 0xA5,Output ignores RAM content
+						 // 0xA4=Output follows RAM content; 0xA5,Output ignores RAM content
 		0xD3, 0x00,      // Set display offset. 00 = no offset
 		0xD5,            // --set display clock divide ratio/oscillator frequency
 		0xF0,            // --set divide ratio
@@ -99,15 +134,35 @@ void SSD1306Initialize(bool displayOn, uint8_t currentDisplaySelection)
 	#if SSD1306_SPI == 1
 	
 	//On the control port, run the reset on the oled
-    SSD1306_CS_PORT |= (1 << ssd1306csPinPositions[currentDisplay]);
+	for(uint8_t i = 0; i < sizeof(ssd1306csPinPositions); i++)
+	{
+		SSD1306_CS_PORT |= (1 << ssd1306csPinPositions[i]);
+	}
+	//SSD1306_CS_PORT |= (1 << ssd1306csPinPositions[currentDisplay]);
     SSD1306_SET_DC();
-    SSD1306_SET_RES();
+    
+	SSD1306_SET_RES();
+	delayForMicroseconds(1);
 	SSD1306_CLEAR_RES();
 	delayForMilliseconds(10);
 	SSD1306_SET_RES();
     
-    
-	#endif
+	for(uint8_t i = 0; i < sizeof(ssd1306csPinPositions); i++)
+	{
+		SSD1306SelectDisplay(i);
+		
+		//SSD1306_CS_PORT &= ~(1 << ssd1306csPinPositions[i]);
+		//Send our initialization sequence
+		SSD1306SendCommandArray(init_sequence, sizeof(init_sequence));
+		SSD1306ClearScreen();
+		SSD1306SendCommand(SSD1306_CMD_DEACTIVATE_SCROLL);
+		//SSD1306_CS_PORT |= (1 << ssd1306csPinPositions[i]);
+	}
+	
+	SSD1306SelectDisplay(currentDisplaySelection);
+	
+	#else
+	
 	
 	//Send our initialization sequence
 	SSD1306SendCommandArray(init_sequence, sizeof(init_sequence));
@@ -115,6 +170,10 @@ void SSD1306Initialize(bool displayOn, uint8_t currentDisplaySelection)
 	//Clear the OLED screen and deactivate any scrolling
 	SSD1306ClearScreen();
 	SSD1306SendCommand(SSD1306_CMD_DEACTIVATE_SCROLL);
+    
+	#endif
+	
+	
 }
 
   
@@ -122,16 +181,18 @@ void SSD1306Initialize(bool displayOn, uint8_t currentDisplaySelection)
 
 /**
  * Sends a single command to the display. Chip select must be set before running this
- * @param cmd
+ * \param cmd
  */
 void SSD1306SendCommand(uint8_t cmd)
 {
 #if SSD1306_SPI == 1
-    SSD1306_CS_PORT &= ~(1 << ssd1306csPinPositions[currentDisplay]);
+    
+	SSD1306_CS_PORT &= ~(1 << ssd1306csPinPositions[currentDisplay]);
     SSD1306_CLEAR_DC();
-    Spi1Transmit(cmd);
+    SpiTransmit(cmd);
     SSD1306_SET_DC();
     SSD1306_CS_PORT |= (1 << ssd1306csPinPositions[currentDisplay]);
+	
 #elif SSD1306_I2C == 1
     I2CStart((SSD1306_ADDRESS << 1) | 0);
     I2CByte(SSD1306_CMD_SEND_CMD);    // 0x00 for command, 0x40 for data
@@ -144,14 +205,14 @@ void SSD1306SendCommand(uint8_t cmd)
 
 /**
  * Sends commands to the display. Chip select must be set before running this
- * @param cmd
+ * \param cmd
  */
 void SSD1306SendMoreCommands(uint8_t* cmd)
 {
 #if SSD1306_SPI == 1
     SSD1306_CS_PORT &= ~(1 << ssd1306csPinPositions[currentDisplay]);
     SSD1306_CLEAR_DC();
-    while(*cmd) Spi1Transmit(*cmd++);
+    while(*cmd) SpiTransmit(*cmd++);
     SSD1306_SET_DC();
     SSD1306_CS_PORT |= (1 << ssd1306csPinPositions[currentDisplay]);
 #elif SSD1306_I2C == 1
@@ -166,15 +227,15 @@ void SSD1306SendMoreCommands(uint8_t* cmd)
 
 /**
  * Sends commands to the display. Chip select must be set before running this
- * @param cmd
+ * \param cmd
  */
 void SSD1306SendCommandArray(uint8_t cmds[], uint16_t cmdlen)
 {
 #if SSD1306_SPI == 1
     SSD1306_CS_PORT &= ~(1 << ssd1306csPinPositions[currentDisplay]);
     SSD1306_CLEAR_DC();
-    for(uint8_t i = 0; i < cmdlen; i++) {
-        Spi1Transmit(cmds[i]);
+    for(uint16_t i = 0; i < cmdlen; i++) {
+        SpiTransmit(cmds[i]);
     }
     
     SSD1306_SET_DC();
@@ -184,7 +245,7 @@ void SSD1306SendCommandArray(uint8_t cmds[], uint16_t cmdlen)
     I2CStart((SSD1306_ADDRESS << 1) | 0);
     I2CByte(SSD1306_CMD_SEND_CMD);    // 0x00 for command, 0x40 for data
     
-    for(uint8_t i = 0; i < cmdlen; i++) {
+    for(uint16_t i = 0; i < cmdlen; i++) {
         I2CByte(cmds[i]);
     }
     
@@ -196,14 +257,14 @@ void SSD1306SendCommandArray(uint8_t cmds[], uint16_t cmdlen)
 
 /**
  * Sends a single data byte to the display. Chip select must be set before running this
- * @param data
+ * \param data
  */
 void SSD1306SendData(uint8_t data)
 {
 #if SSD1306_SPI == 1
     SSD1306_CS_PORT &= ~(1 << ssd1306csPinPositions[currentDisplay]);
     SSD1306_SET_DC();
-    Spi1Transmit(data);
+    SpiTransmit(data);
     SSD1306_CS_PORT |= (1 << ssd1306csPinPositions[currentDisplay]);
 #elif SSD1306_I2C == 1
     I2CStart((SSD1306_ADDRESS << 1) | 0);
@@ -217,14 +278,14 @@ void SSD1306SendData(uint8_t data)
 
 /**
  * Sends data bytes to the display. Chip select must be set before running this
- * @param data
+ * \param data
  */
 void SSD1306SendMoreData(uint8_t* data)
 {
 #if SSD1306_SPI == 1
     SSD1306_CS_PORT &= ~(1 << ssd1306csPinPositions[currentDisplay]);
     SSD1306_SET_DC();
-    while(*data) Spi1Transmit(*data++);
+    while(*data) SpiTransmit(*data++);
     SSD1306_CS_PORT |= (1 << ssd1306csPinPositions[currentDisplay]);
 #elif SSD1306_I2C == 1
     I2CStart((SSD1306_ADDRESS << 1) | 0);
@@ -238,7 +299,7 @@ void SSD1306SendMoreData(uint8_t* data)
 
 /**
  * Sends data to the display. Chip select must be set before running this
- * @param cmd
+ * \param cmd
  */
 void SSD1306SendDataArray(uint8_t data[], uint16_t datalen)
 {
@@ -246,8 +307,8 @@ void SSD1306SendDataArray(uint8_t data[], uint16_t datalen)
     SSD1306_CS_PORT &= ~(1 << ssd1306csPinPositions[currentDisplay]);
     SSD1306_SET_DC();
     
-    for(uint8_t i = 0; i < datalen; i++) {
-        Spi1Transmit(data[i]);
+    for(uint16_t i = 0; i < datalen; i++) {
+        SpiTransmit(data[i]);
     }
     
     SSD1306_CS_PORT |= (1 << ssd1306csPinPositions[currentDisplay]);
@@ -256,7 +317,7 @@ void SSD1306SendDataArray(uint8_t data[], uint16_t datalen)
     I2CStart((SSD1306_ADDRESS << 1) | 0);
     I2CByte(SSD1306_CMD_SEND_DATA);    // 0x00 for command, 0x40 for data
     
-    for(uint8_t i = 0; i < datalen; i++) {
+    for(uint16_t i = 0; i < datalen; i++) {
         I2CByte(data[i]);
     }
     
@@ -271,15 +332,20 @@ void SSD1306SendDataArray(uint8_t data[], uint16_t datalen)
  */
 void SSD1306ClearScreen()
 {
+	
 #if !defined(SSD1306_DRAW_IMMEDIATE) || SSD1306_DRAW_IMMEDIATE < 1
-    for (uint8_t i = 0; i < SSD1306_HEIGHT/8; i++){
-		memset(SSD1306DisplayBuffer[i], 0x00, sizeof(SSD1306DisplayBuffer[i]));
-		SSD1306GoToPixelPosition(0,i);
-		SSD1306SendDataArray(SSD1306DisplayBuffer[i], sizeof(SSD1306DisplayBuffer[i]));
-	}
+    SSD1306ClearBuffer();
+	SSD1306Update();
+	//for (uint8_t i = 0; i < SSD1306_HEIGHT/8; i++)
+	//{
+		////memset(SSD1306DisplayBuffer[i], 0x00, sizeof(SSD1306DisplayBuffer[i]));
+		//memset(SSD1306DisplayBuffer[i], 0x00, SSD1306_WIDTH);
+		//SSD1306GoToPixelPosition(0,i);
+		//SSD1306SendDataArray(SSD1306DisplayBuffer[i], SSD1306_WIDTH);
+	//}
 #else
     
-    unsigned char clearScreenBuffer[64] = {0};
+    unsigned char clearScreenBuffer[SSD1306_WIDTH] = {0};
     
     for (uint8_t i = 0; i < SSD1306_HEIGHT/8; i++){
 		SSD1306GoToPixelPosition(0,i);
@@ -302,7 +368,7 @@ void SSD1306StopScroll() {
 
 /**
  * Inverts the ssd1306 display
- * @param invert whether or not to invert
+ * \param invert whether or not to invert
  */
 void SSD1306SetInvert(bool invert)
 {
@@ -318,7 +384,7 @@ void SSD1306SetInvert(bool invert)
 
 /**
  * 
- * @param gotoSleep Whether or not to set to sleep
+ * \param gotoSleep Whether or not to set to sleep
  */
 extern void SSD1306SetSleep(bool gotoSleep)
 {
@@ -335,7 +401,7 @@ extern void SSD1306SetSleep(bool gotoSleep)
 
 /**
  * Sets the contrast of the display
- * @param contrast The contrast value
+ * \param contrast The contrast value
  */
 void SSD1306SetContrast(uint8_t contrast) {
 	uint8_t commandSequence[2] = {SSD1306_CMD_SET_CONTRAST, contrast};
@@ -345,11 +411,11 @@ void SSD1306SetContrast(uint8_t contrast) {
 
 
 /**
- * @brief Has the display start scrolling towards the right
+ * \brief Has the display start scrolling towards the right
  * 
  * 
- * @param start -The scroll start point
- * @param stop  -The scroll stop point
+ * \param start -The scroll start point
+ * \param stop  -The scroll stop point
  */
 void SSD1306StartScrollRight(uint8_t start, uint8_t stop)
 {
@@ -362,11 +428,11 @@ void SSD1306StartScrollRight(uint8_t start, uint8_t stop)
 
 
 /**
- * @brief Has the display start scrolling towards the left
+ * \brief Has the display start scrolling towards the left
  * 
  * 
- * @param start -The scroll start point
- * @param stop  -The scroll stop point
+ * \param start -The scroll start point
+ * \param stop  -The scroll stop point
  */
 void SSD1306StartScrollLeft(uint8_t start, uint8_t stop)
 {
@@ -380,45 +446,77 @@ void SSD1306StartScrollLeft(uint8_t start, uint8_t stop)
 
 /**
  * Goes the the position on the display
- * @param x The x position on the OLED screen
- * @param y The y position on the OLED screen 
- * @param fontSize The size of the font width
+ * \param x The x position on the OLED screen
+ * \param y The y position on the OLED screen 
+ * \param fontSize The size of the font width
  */
-void SSD1306GoToPosition(uint8_t x, uint8_t y, uint8_t fontSize) {
-	x = x * fontSize;
+void SSD1306GoToPosition(uint8_t x, uint8_t y, uint8_t fontSize) 
+{
+	//if(((x+fontSize) >= SSD1306_WIDTH))
+	//{
+		//x = 0;
+		//y += fontSize;
+				//
+	//}
+			//
+	//if(y >= SSD1306_HEIGHT)
+	//{
+		//return;
+	//}
+	//
+	//
+	//x = x + fontSize;
+	x *= fontSize;
+	
 	SSD1306GoToPixelPosition(x,y);
 }
 
 
 
 /**
- * @brief Goes to the exact pixel on the OLED screen
+ * \brief Goes to the exact pixel on the OLED screen
  * 
  * 
- * @param x The x position on the OLED screen
- * @param y The y position on the OLED screen 
+ * \param x The x position on the OLED screen
+ * \param y The y position on the OLED screen 
  */
-void SSD1306GoToPixelPosition(uint8_t x, uint8_t y) {
-	if( x > (SSD1306_WIDTH) || y > (SSD1306_HEIGHT/8-1)) {
+void SSD1306GoToPixelPosition(uint8_t x, uint8_t y) 
+{
+	//if(x >= SSD1306_WIDTH)
+	//{
+		//return;
+	//}
+	//
+	//if(y >= SSD1306_HEIGHT)
+	//{
+		//return;
+	//}
+	//
+	
+	if( x > (SSD1306_WIDTH) || y > (SSD1306_HEIGHT/8-1))
+	{
 		return;// out of display
 	}
-	cursorPosX=x;
+	
 	cursorPosY=y;
+	cursorPosX=x;
+	
 	uint8_t commandSequence[4] = {0xb0+y, 0x21, x, 0x7f};
+	
 	SSD1306SendCommandArray(commandSequence, sizeof(commandSequence));
 }
 
 
 
 /**
- * @brief Puts a byte into memory
+ * \brief Puts a byte into memory
  * 
  * 
- * @param c -The char
+ * \param c -The char
  */
 void SSD1306PutChar(char c) 
 {
-//    SSD1306DisplayBuffer[cursorPosY][cursorPosX] = c;
+
     
 #if defined(SSD1306_DRAW_IMMEDIATE) && SSD1306_DRAW_IMMEDIATE > 0
                 
@@ -434,13 +532,14 @@ void SSD1306PutChar(char c)
 
 
 /**
- * @brief puts a string into memory
+ * \brief puts a string into memory
  * 
  * 
- * @param s 
+ * \param s 
  */
 void SSD1306PutString(char* s) {
-	while (*s) {
+	while (*s) 
+	{
 		unsigned char c = (*s++);
 		SSD1306PutChar(c);
 	}
@@ -449,116 +548,45 @@ void SSD1306PutString(char* s) {
 
 #if defined(__AVR)
 /**
- * @brief Writes a string pointer to the screen using progmem
+ * \brief Writes a string pointer to the screen using progmem
  * 
  * 
- * @param progmemS -The progmem string to write
+ * \param progmemS -The progmem string to write
  */
 void SSD1306PutP(PGM_P progmemS) {
 	register uint8_t c;
-	while ((c = pgm_read_byte(progmemS++))) {
-		Put(c);
+	while ((c = pgm_read_byte(progmemS++))) 
+	{
+		SSD1306PutChar(c);
 	}
 }
 #endif
 
 
  /**
-  * @brief Writes a char onto the screen
+  * \brief Writes a char onto the screen
   * 
   * 
-  * @param c -The char
+  * \param c -The char
   */
- void SSD1306PutFont(char c, const char fontSheet[], uint8_t fontSheetCharacterLength) {
+ void SSD1306PutFontChar(char c, const char fontSheet[], uint8_t fontSheetCharacterLength) 
+ {
 
  	switch (c)
 	{
 		//Backspace
 		case '\b':
-			SSD1306GoToPosition(cursorPosX, cursorPosY,fontSheetCharacterLength);
-			SSD1306PutFont(' ', fontSheet, fontSheetCharacterLength);
-			SSD1306GoToPosition(cursorPosX, cursorPosY,fontSheetCharacterLength);
-		break;
-		
-		//Tab
-		case '\t':
-			if( (cursorPosX*4) < (SSD1306_WIDTH / fontSheetCharacterLength*4) )
-			{
-				SSD1306GoToPosition(cursorPosX*4, cursorPosY,fontSheetCharacterLength);
-			}
-			else
-			{
-				SSD1306GoToPosition(SSD1306_WIDTH / fontSheetCharacterLength, cursorPosY,fontSheetCharacterLength);
-			}
-
-		break;
-		
-		//Next line
-		case '\n':
-			if(cursorPosY < (SSD1306_HEIGHT/8-1)){
-				SSD1306GoToPosition(cursorPosX, cursorPosY,fontSheetCharacterLength);
-			}
-
-		break;
-		
-		//Carriage return
-		case '\r':
-			SSD1306GoToPosition(0, cursorPosY,fontSheetCharacterLength);
-
-		break;
-		
-		//Clear screen
-		case '\f':
-			SSD1306ClearScreen();
-
-		break;
-
-		default:
-			if(((cursorPosX-fontSheetCharacterLength)<=SSD1306_WIDTH))
-			{
-				for (uint8_t j = 0; j < fontSheetCharacterLength; j++)
-				{
-#if defined(SSD1306_DRAW_IMMEDIATE) && SSD1306_DRAW_IMMEDIATE > 0
-                
-               SSD1306SendData(fontSheet[((c - ' ') * fontSheetCharacterLength)+j]);
-#else
-                SSD1306DisplayBuffer[cursorPosY][cursorPosX+j] = fontSheet[((c - ' ') * fontSheetCharacterLength)+j];
-                
-#endif		
-				}
-				cursorPosX+=fontSheetCharacterLength;
-			}
 			
-		break;
-	}
- }
-
-
-
- /**
-  * @brief Writes a string onto the screen
-  * 
-  * 
-  * @param s 
-  */
- void SSD1306PutFontString(char* s, const char fontSheet[], uint8_t fontSheetCharacterLength) {
- 	for(uint8_t i = 0; i < strlen(s); i++)
- 	{
-		char c = s[i];
-		switch (c)
-		{
-		//Backspace
-		case '\b':
-			SSD1306GoToPosition(cursorPosX, cursorPosY,fontSheetCharacterLength);
-			SSD1306PutFont(' ', fontSheet, fontSheetCharacterLength);
-			SSD1306GoToPosition(cursorPosX, cursorPosY,fontSheetCharacterLength);
+			SSD1306GoToPosition(cursorPosX-1, cursorPosY,fontSheetCharacterLength);
+			SSD1306PutFontChar(' ', fontSheet, fontSheetCharacterLength);		
+			SSD1306GoToPosition(cursorPosX-1, cursorPosY,fontSheetCharacterLength);
 		break;
 		
 		//Tab
 		case '\t':
-			if( (cursorPosX*4) < (SSD1306_WIDTH / fontSheetCharacterLength*4) )
+			if( (cursorPosX+4) < (SSD1306_WIDTH / fontSheetCharacterLength)-4 )
 			{
-				SSD1306GoToPosition(cursorPosX*4, cursorPosY,fontSheetCharacterLength);
+				SSD1306GoToPosition(cursorPosX+4, cursorPosY,fontSheetCharacterLength);
 			}
 			else
 			{
@@ -569,154 +597,232 @@ void SSD1306PutP(PGM_P progmemS) {
 		
 		//Next line
 		case '\n':
-			if(cursorPosY < (SSD1306_HEIGHT/8-1)){
-				SSD1306GoToPosition(cursorPosX, cursorPosY,fontSheetCharacterLength);
+			if(cursorPosY < (SSD1306_HEIGHT/8-1))
+			{
+				SSD1306GoToPosition(cursorPosX, cursorPosY+1,fontSheetCharacterLength);
 			}
 
 		break;
 		
 		//Carriage return
 		case '\r':
-			SSD1306GoToPosition(0, cursorPosY,fontSheetCharacterLength);
+			SSD1306GoToPosition(0, cursorPosY, fontSheetCharacterLength);
 
 		break;
 		
-		//Clear screen
-		case '\f':
-			SSD1306ClearScreen();
-
-		break;
+		////Clear screen
+		//case '\f':
+			//SSD1306ClearScreen();
+		//break;
 
 		default:
-			if(cursorPosX+fontSheetCharacterLength > SSD1306_WIDTH) {
+			
+			//If c does not fit or is not good
+			if(cursorPosX >= SSD1306_WIDTH-fontSheetCharacterLength)
+			{
+				//break
 				break;
 			}
+			
+			//else...
 			for (uint8_t j = 0; j < fontSheetCharacterLength; j++)
 			{
-#if defined(SSD1306_DRAW_IMMEDIATE) && SSD1306_DRAW_IMMEDIATE > 0
-                
-               SSD1306SendData(fontSheet[((c - ' ') * fontSheetCharacterLength)+j]);
-#else
-                SSD1306DisplayBuffer[cursorPosY][cursorPosX+j] = fontSheet[((c - ' ') * fontSheetCharacterLength)+j];
-                
-#endif
+				////Check for error
+				//if(cursorPosX+fontSheetCharacterLength > SSD1306_WIDTH)
+				//{
+					//break;
+				//}
+				
+				SSD1306PutChar(fontSheet[j]);
+				cursorPosX+=1;
+				//#if defined(SSD1306_DRAW_IMMEDIATE) && SSD1306_DRAW_IMMEDIATE > 0
+					//SSD1306GoToPixelPosition(cursorPosX+j, cursorPosY);
+					//SSD1306SendData(fontSheet[((c - ' ') * fontSheetCharacterLength)+j]);
+				//#else
+					////SSD1306DisplayBuffer[cursorPosY][cursorPosX+j] = fontSheet[((c - ' ') * fontSheetCharacterLength)+j];
+					//SSD1306DisplayBuffer[cursorPosY][cursorPosX] = fontSheet[j];
+				//#endif			
+				
 			}
-			cursorPosX+=fontSheetCharacterLength;
+			
+			//cursorPosX+=fontSheetCharacterLength;
+			
+			//if(cursorPosX >= SSD1306_WIDTH)
+			//{
+				//cursorPosX = 0;
+				//cursorPosY += fontSheetCharacterLength;
+			//}
+			//
+			//if(cursorPosY >= SSD1306_HEIGHT)
+			//{
+				//return;
+			//}
+			
+				
 			
 			
 		break;
-		}
 	}
  }
 
 
 
-
  /**
-  * @brief Writes a string onto the screen
+  * \brief Writes a string onto the screen
   * 
   * 
-  * @param s 
+  * \param s 
   */
- void SSD1306PutConstString(const char* s, const char fontSheet[], uint8_t fontSheetCharacterLength) {
+ void SSD1306PutFontString(
+ char* s,
+ uint8_t fontSheetCharacterLength,
+ char fontSheet[]
+ )
+ {
+ 	unsigned char currentFontChar[fontSheetCharacterLength];
  	
-	 for(uint8_t i = 0; i < strlen(s); i++)
+ 	memset(currentFontChar,0x00,fontSheetCharacterLength);
+ 	
+ 	unsigned short fontLocation = 0;
+ 	
+ 	
+ 	while(*s)
  	{
-		char c = s[i];
-		switch (c)
+	 	char c = *s++;
+	 	
+	 	if(c >= ' ')
+	 	{
+		 	c -= ' ';
+	 	}
+	 	
+	 	
+	 	fontLocation = c*fontSheetCharacterLength;
+	 	
+	 	for(uint8_t i = 0; i < fontSheetCharacterLength; i++)
+	 	{
+		 	currentFontChar[i] = fontSheet[fontLocation+i];
+	 	}
+	 	
+	 	SSD1306PutFontChar(c,currentFontChar,fontSheetCharacterLength);
+ 	}
+ 	
+ }
+ 
+ 
+ 
+ /**
+ * \brief Puts a font string at the location passed
+ *
+ */
+ void SSD1306PutFontStringAtLocation(
+	char* s,
+	uint8_t fontSheetCharacterLength,
+	char fontSheet[],
+	uint8_t x, uint8_t y
+ )
+ {
+	 
+	 unsigned char currentFontChar[fontSheetCharacterLength];
+	 
+	 memset(currentFontChar,0x00,fontSheetCharacterLength);
+	 
+	 unsigned short fontLocation = 0;
+	 SSD1306GoToPosition(x,y,fontSheetCharacterLength);
+	 
+	 while(*s)
+	 {
+		 char c = *s++;
+		 
+		 if(c >= ' ')
+		 {
+			 c -= ' ';
+		 }
+		 
+		
+		fontLocation = c*fontSheetCharacterLength;
+			 
+		for(uint8_t i = 0; i < fontSheetCharacterLength; i++)
 		{
-		//Backspace
-		case '\b':
-			SSD1306GoToPosition(cursorPosX, cursorPosY,fontSheetCharacterLength);
-			SSD1306PutFont(' ', fontSheet, fontSheetCharacterLength);
-			SSD1306GoToPosition(cursorPosX, cursorPosY,fontSheetCharacterLength);
-		break;
-		
-		//Tab
-		case '\t':
-			if( (cursorPosX*4) < (SSD1306_WIDTH / fontSheetCharacterLength*4) )
-			{
-				SSD1306GoToPosition(cursorPosX*4, cursorPosY,fontSheetCharacterLength);
-			}
-			else
-			{
-				SSD1306GoToPosition(SSD1306_WIDTH / fontSheetCharacterLength, cursorPosY,fontSheetCharacterLength);
-			}
-
-		break;
-		
-		//Next line
-		case '\n':
-			if(cursorPosY < (SSD1306_HEIGHT/8-1)){
-				SSD1306GoToPosition(cursorPosX, cursorPosY,fontSheetCharacterLength);
-			}
-
-		break;
-		
-		//Carriage return
-		case '\r':
-			SSD1306GoToPosition(0, cursorPosY,fontSheetCharacterLength);
-
-		break;
-		
-		//Clear screen
-		case '\f':
-			SSD1306ClearScreen();
-
-		break;
-
-		default:
-			if(cursorPosX+fontSheetCharacterLength > SSD1306_WIDTH) {
-				break;
-			}
-			for (uint8_t j = 0; j < fontSheetCharacterLength; j++)
-			{
-                
-#if defined(SSD1306_DRAW_IMMEDIATE) && SSD1306_DRAW_IMMEDIATE > 0
-                
-               SSD1306SendData(fontSheet[((c - ' ') * fontSheetCharacterLength)+j]);
-#else
-                SSD1306DisplayBuffer[cursorPosY][cursorPosX+j] = fontSheet[((c - ' ') * fontSheetCharacterLength)+j];
-                
-#endif
-                //SSD1306DisplayBuffer[cursorPosY][cursorPosX+j] = fontSheet[((c - ' ') * fontSheetCharacterLength)+j];
-                
-                /*
-				if(useGraphicMode) 
-				{
-                    displayBuffer[cursorPosY][cursorPosX+j] = fontSheet[((c - ' ') * fontSheetCharacterLength)+j];
-				}
-				else 
-				{
-					SendData(fontSheet[((c - ' ') * fontSheetCharacterLength)+j]);
-				}
-				*/	
-			}
-			cursorPosX+=fontSheetCharacterLength;
-			
-			
-		break;
+				currentFontChar[i] = fontSheet[fontLocation+i];
+				
 		}
+		 
+		 SSD1306PutFontChar(c,currentFontChar,fontSheetCharacterLength);
+	 }
+	 
+	 
+ }
+ 
+ 
+ 
+ /**
+  * \brief Writes a char onto the screen
+  * 
+  * 
+  * \param c -The char
+  */
+ void SSD1306WriteFontLine(const char fontSheet[], uint8_t fontSheetCharacterLength) 
+ {
+
+ 	for (uint8_t j = 0; j < fontSheetCharacterLength; j++)
+	{
+		SSD1306PutChar(fontSheet[j]);
+		cursorPosX+=1;		
 	}
+ }
+ 
+ 
+ 
+ /**
+ * \brief Writes the font array passed onto the screen
+ *
+ */
+ void SSD1306WriteFontToLocation(
+ uint8_t fontSheetCharacterLength,
+ uint8_t fontSheetCharacterWidth,
+ char fontSheet[],
+ uint8_t x, uint8_t y
+ )
+ {
+
+	unsigned char currentFontChar[fontSheetCharacterWidth];
+ 	
+ 	memset(currentFontChar,0x00,fontSheetCharacterWidth);
+	
+	SSD1306GoToPosition(x,y,fontSheetCharacterWidth);
+	 
+	for (uint8_t i = 0; i < fontSheetCharacterLength; i++)
+	{
+		for(uint8_t j = 0; j < fontSheetCharacterWidth; j++)
+		{
+			currentFontChar[j] = fontSheet[j+i*fontSheetCharacterWidth];
+		}
+		SSD1306WriteFontLine(currentFontChar,fontSheetCharacterWidth);	 
+		SSD1306GoToPosition(x,y+1,fontSheetCharacterWidth);
+	}
+	 
+	 
+	 
  }
 
 
 
 /**
- * @brief Draws a single pixel on the screen
+ * \brief Draws a single pixel on the screen
  * 
  * 
- * @param x 	-The x position
- * @param y 	-The y position
- * @param color -The color of pixel to draw
- * @return uint8_t 1 if out of display, 0 if worked
+ * \param x 	-The x position
+ * \param y 	-The y position
+ * \param color -The color of pixel to draw
+ * \return uint8_t 1 if out of display, 0 if worked
  */
 uint8_t SSD1306DrawPixel(uint8_t x, uint8_t y, uint8_t color) {
 	
-	uint16_t index = 0;
-    index = (y / 8);
+	uint16_t index = (y / 8);
     
-	if( x > SSD1306_WIDTH-1 || y > (SSD1306_HEIGHT-1)) return 1; // out of Display
+	if( x > SSD1306_WIDTH-1 || y > (SSD1306_HEIGHT-1)) {
+		return 1; // out of Display
+	}
 	
     
 #if defined(SSD1306_DRAW_IMMEDIATE) && SSD1306_DRAW_IMMEDIATE > 0
@@ -751,56 +857,84 @@ uint8_t SSD1306DrawPixel(uint8_t x, uint8_t y, uint8_t color) {
 
 
 /**
- * @brief Draws a line onto the screen
+ * \brief Draws a line onto the screen
  * 
  * 
- * @param x1 	-The starting x position
- * @param y1 	-The starting y position
- * @param x2 	-The ending x position
- * @param y2 	-The ending y position
- * @param color -The color of line to draw
- * @return uint8_t The result of drawing onto the oled display
+ * \param x1 	-The starting x position
+ * \param y1 	-The starting y position
+ * \param x2 	-The ending x position
+ * \param y2 	-The ending y position
+ * \param color -The color of line to draw
+ * \return uint8_t The result of drawing onto the oled display
  */
 uint8_t SSD1306DrawLine(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t color) {
-	uint8_t result;
+	uint8_t result = 0;
 	
-	int dx =  abs(x2-x1), sx = x1<x2 ? 1 : -1;
-	int dy = -abs(y2-y1), sy = y1<y2 ? 1 : -1;
-	int err = dx+dy, e2; /* error value e_xy */
+	uint8_t xA = min(x1,x2);
+	uint8_t xB = max(x1,x2);
+	uint8_t yA = min(y1,y2);
+	uint8_t yB = max(y1,y2);
 	
-	while(1) {
-		result = SSD1306DrawPixel(x1, y1, color);
-		if (x1==x2 && y1==y2) break;
-		e2 = 2*err;
-		if (e2 > dy) {
-			err += dy; x1 += sx;
-		}
-		
-		if (e2 < dx) {
-			err += dx; y1 += sy;
+	while(xA < xB || yA < yB)
+	{
+		result = SSD1306DrawPixel(xA, yA, color);
+		if(xA < xB) xA++;
+		if(yA < yB) yA++;
+		if(result != 0)
+		{
+			
+			break;
+			
 		}
 	}
-			
+	
 	return result;
+	
+	
+	//Original code
+	
+	////for(uint8_t i = xA; i < SSD1306_WIDTH && i < xB; i++)
+	////{
+		////
+	////}
+	//
+	//int dx =  abs(x2-x1), sx = x1<x2 ? 1 : -1;
+	//int dy = -abs(y2-y1), sy = y1<y2 ? 1 : -1;
+	//int err = dx+dy, e2; /* error value e_xy */
+	//
+	//while(1) {
+		//result = SSD1306DrawPixel(x1, y1, color);
+		//if (x1==x2 && y1==y2) break;
+		//e2 = 2*err;
+		//if (e2 > dy) {
+			//err += dy; x1 += sx;
+		//}
+		//
+		//if (e2 < dx) {
+			//err += dx; y1 += sy;
+		//}
+	//}
+			
+	//return result;
 	
 }
 
 
 
 /**
- * @brief Draws a rectangle onto the screen
+ * \brief Draws a rectangle onto the screen
  * 
  * 
- * @param px1 	-The starting x pixel position
- * @param py1 	-The starting y pixel position
- * @param px2 	-The ending x pixel position
- * @param py2 	-The ending y pixel position
- * @param color -The color of rectangle outline to draw
- * @return uint8_t The result of drawing onto the oled display
+ * \param px1 	-The starting x pixel position
+ * \param py1 	-The starting y pixel position
+ * \param px2 	-The ending x pixel position
+ * \param py2 	-The ending y pixel position
+ * \param color -The color of rectangle outline to draw
+ * \return uint8_t The result of drawing onto the oled display
  */
 uint8_t SSD1306DrawRect(uint8_t px1, uint8_t py1, uint8_t px2, uint8_t py2, uint8_t color) {
 	uint8_t result;
-			
+	
 	result = SSD1306DrawLine(px1, py1, px2, py1, color);
 	result = SSD1306DrawLine(px2, py1, px2, py2, color);
 	result = SSD1306DrawLine(px2, py2, px1, py2, color);
@@ -812,15 +946,15 @@ uint8_t SSD1306DrawRect(uint8_t px1, uint8_t py1, uint8_t px2, uint8_t py2, uint
 
 
 /**
- * @brief Draws a filled rectangle onto the screen
+ * \brief Draws a filled rectangle onto the screen
  * 
  * 
- * @param px1 	-The starting x pixel position
- * @param py1 	-The starting y pixel position
- * @param px2 	-The ending x pixel position
- * @param py2 	-The ending y pixel position
- * @param color -The fill color of rectangle to draw
- * @return uint8_t The result of drawing onto the oled display
+ * \param px1 	-The starting x pixel position
+ * \param py1 	-The starting y pixel position
+ * \param px2 	-The ending x pixel position
+ * \param py2 	-The ending y pixel position
+ * \param color -The fill color of rectangle to draw
+ * \return uint8_t The result of drawing onto the oled display
  */
 uint8_t SSD1306FillRect(uint8_t px1, uint8_t py1, uint8_t px2, uint8_t py2, uint8_t color) {
 	uint8_t result;
@@ -835,15 +969,6 @@ uint8_t SSD1306FillRect(uint8_t px1, uint8_t py1, uint8_t px2, uint8_t py2, uint
         py2 ^= py1;
         py1 ^= py2;
         
-        //Removed because not good. No need for temp variable. Left incase things go horribly wrong.
-//        
-//        uint8_t temp = px1;
-//		px1 = px2;
-//		px2 = temp;
-//        
-//		temp = py1;
-//		py1 = py2;
-//		py2 = temp;
 	}
 	for (uint8_t i=0; i<=(py2-py1); i++) {
 		result = SSD1306DrawLine(px1, py1+i, px2, py1+i, color);
@@ -855,14 +980,14 @@ uint8_t SSD1306FillRect(uint8_t px1, uint8_t py1, uint8_t px2, uint8_t py2, uint
 
 
 /**
- * @brief Draws a circle onto the oled's screen
+ * \brief Draws a circle onto the oled's screen
  * 
  * 
- * @param centerX -The center x position of the circle drawn on the screen
- * @param centerY -The center y position of the circle drawn on the screen
- * @param radius   -The radius of the circle
- * @param color    -The color of the circles outline
- * @return uint8_t -The result of drawing onto the screen
+ * \param centerX -The center x position of the circle drawn on the screen
+ * \param centerY -The center y position of the circle drawn on the screen
+ * \param radius   -The radius of the circle
+ * \param color    -The color of the circles outline
+ * \return uint8_t -The result of drawing onto the screen
  */
 uint8_t SSD1306DrawCircle(uint8_t centerX, uint8_t centerY, uint8_t radius, uint8_t color) {
 	uint8_t result;
@@ -903,14 +1028,14 @@ uint8_t SSD1306DrawCircle(uint8_t centerX, uint8_t centerY, uint8_t radius, uint
 
 
 /**
- * @brief Draws a filled circle onto the oled's screen
+ * \brief Draws a filled circle onto the oled's screen
  * 
  * 
- * @param center_x -The center x position of the circle drawn on the screen
- * @param center_y -The center y position of the circle drawn on the screen
- * @param radius   -The radius of the circle
- * @param color    -The fill color of the circle
- * @return uint8_t -The result of drawing onto the screen
+ * \param center_x -The center x position of the circle drawn on the screen
+ * \param center_y -The center y position of the circle drawn on the screen
+ * \param radius   -The radius of the circle
+ * \param color    -The fill color of the circle
+ * \return uint8_t -The result of drawing onto the screen
  */
 uint8_t SSD1306FillCircle(uint8_t center_x, uint8_t center_y, uint8_t radius, uint8_t color) {
 	uint8_t result;
@@ -923,19 +1048,21 @@ uint8_t SSD1306FillCircle(uint8_t center_x, uint8_t center_y, uint8_t radius, ui
 
 
 /**
- * @brief Draws a bitmap onto the OLED screen
+ * \brief Draws a bitmap onto the OLED screen
  * 
  * 
- * @param x -The x position to draw at
- * @param y -The y position to draw at
- * @param picture -const pointer for the picture to draw
- * @param width   -The width of the bitmap
- * @param height  -The height of the bitmap
- * @param color   -The color of the bitmap
- * @return uint8_t The result of drawing onto the screen
+ * \param x -The x position to draw at
+ * \param y -The y position to draw at
+ * \param picture -const pointer for the picture to draw
+ * \param width   -The width of the bitmap
+ * \param height  -The height of the bitmap
+ * \param color   -The color of the bitmap
+ * \return uint8_t The result of drawing onto the screen
  */
-uint8_t SSD1306DrawBitmap(uint8_t x, uint8_t y, const uint8_t *picture, uint8_t width, uint8_t height, uint8_t color) {
+uint8_t SSD1306DrawBitmap(uint8_t x, uint8_t y, const uint8_t *picture, uint8_t width, uint8_t height, uint8_t color) 
+{
 	uint8_t result,i,j, byteWidth = (width+7)/8;
+	
 	for (j = 0; j < height; j++) {
 		for(i=0; i < width;i++){
 #if defined(__AVR)
@@ -957,14 +1084,53 @@ uint8_t SSD1306DrawBitmap(uint8_t x, uint8_t y, const uint8_t *picture, uint8_t 
 
 
 
+/**
+* \brief Draws the passed pointer to the screen
+*
+*/
+uint8_t SSD1306DrawArea(uint8_t x, uint8_t y, uint8_t *picture, uint8_t width, uint8_t height, uint8_t color) 
+{
+	uint8_t result = 0;
+	uint8_t byteWidth = (uint8_t)((width+7)/8);
+	
+	for (uint8_t j = 0; j < height; j++) {
+		for(uint8_t i=0; i < width;i++)
+		{
+			if(*(picture + j * byteWidth + i / 8) & (128 >> (i & 7)))
+			{
+				result = SSD1306DrawPixel(x+i, y+j, color);
+			} 
+			else 
+			{
+				result = SSD1306DrawPixel(x+i, y+j, !color);
+			}
+		}
+	}
+	return result;
+}
+
+
+
+
+
+
+
+
+
+
 #if !defined(SSD1306_DRAW_IMMEDIATE) || SSD1306_DRAW_IMMEDIATE < 1
 /**
  * Clears the display buffer
  */
 void SSD1306ClearBuffer()
 {
-    for (uint8_t i = 0; i < SSD1306_HEIGHT/8; i++){
-		memset(SSD1306DisplayBuffer[i], 0x00, sizeof(SSD1306DisplayBuffer[i]));
+    for (uint8_t i = 0; i < SSD1306_HEIGHT/8; i++)
+	{
+		for(uint8_t j = 0; j < SSD1306_WIDTH; j++)
+		{
+			SSD1306DisplayBuffer[i][j] = 0x00;
+		}
+		//memset(SSD1306DisplayBuffer[i], 0x00, sizeof(SSD1306DisplayBuffer[i]));
 	}
 }
 
@@ -973,10 +1139,9 @@ void SSD1306ClearBuffer()
 /**
  * Updates the ssd1306 display
  */
-void SSD1306Update() {
-    
-    //volatile uint16_t size = SSD1306_WIDTH*(SSD1306_HEIGHT/8);
-    
+void SSD1306Update() 
+{
+
 	SSD1306GoToPixelPosition(0,0);
 #if defined(__AVR)
     SSD1306SendDataArray(&SSD1306DisplayBuffer[0][0], SSD1306_WIDTH*SSD1306_HEIGHT/8);
@@ -994,11 +1159,51 @@ void SSD1306Update() {
 }
 
 
+
 /**
- * @brief Checks the status of the display buffer at position
- * @param x -The x position to check
- * @param y -The y position to check
- * @return uint8_t The status of the display buffer
+ * Updates all ssd1306 displays
+ */
+void SSD1306UpdateAll() 
+{
+	
+    for(uint8_t i = 0; i < sizeof(ssd1306csPinPositions); i++)
+	{
+		SSD1306_CS_PORT &= ~(1 << ssd1306csPinPositions[i]);
+	}
+	
+	
+	SSD1306GoToPixelPosition(0,0);
+#if defined(__AVR)
+    SSD1306SendDataArray(&SSD1306DisplayBuffer[0][0], SSD1306_WIDTH*SSD1306_HEIGHT/8);
+#else
+    for(uint8_t i = 0; i < 8; i++)
+    {
+        SSD1306SendDataArray(SSD1306DisplayBuffer[i], sizeof(SSD1306DisplayBuffer[i]));
+    }
+    
+#endif
+
+
+	for(uint8_t i = 0; i < sizeof(ssd1306csPinPositions); i++)
+	{
+		SSD1306_CS_PORT |= (1 << ssd1306csPinPositions[i]);
+	}
+
+    
+#if defined(SSD1306_AUTO_CLEAR_BUFF_ON_UPDATE)
+    SSD1306ClearBuffer();
+#endif
+
+
+
+}
+
+
+/**
+ * \brief Checks the status of the display buffer at position
+ * \param x -The x position to check
+ * \param y -The y position to check
+ * \return uint8_t The status of the display buffer
  */
 uint8_t SSD1306CheckBuffer(uint8_t x, uint8_t y)
 {

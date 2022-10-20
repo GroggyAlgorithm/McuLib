@@ -1,10 +1,10 @@
 /**
  *  \file font.c
  *  \author Tim Robbins
- *  \brief Header file for fonts
+ *  \brief Header file for fonts.
  */
 #ifndef __FONT_H__
-#define __FONT_H__
+#define __FONT_H__	1
 
 
 #ifdef __cplusplus
@@ -20,21 +20,11 @@ extern "C" {
 #include <avr/pgmspace.h>
 
 extern const uint8_t ATECH_LOGO[] PROGMEM;
+extern uint8_t BIG_NUMBERS[11][57];
 
+#define FONT_BIG_NUM_WIDTH	24
+#define FONT_BIG_NUM_HEIGHT 19
 
-#define FONT_BIG_NUM_WIDTH	60
-#define FONT_BIG_NUM_HEIGHT 38
-
-extern const uint8_t BIG_0[] PROGMEM;
-//extern const uint8_t BIG_1[] PROGMEM;
-//extern const uint8_t BIG_2[] PROGMEM;
-//extern const uint8_t BIG_3[] PROGMEM;
-//extern const uint8_t BIG_4[] PROGMEM;
-//extern const uint8_t BIG_5[] PROGMEM;
-//extern const uint8_t BIG_6[] PROGMEM;
-//extern const uint8_t BIG_7[] PROGMEM;
-//extern const uint8_t BIG_8[] PROGMEM;
-//extern const uint8_t BIG_9[] PROGMEM;
 
 #elif defined(__XC)
 
@@ -55,14 +45,17 @@ extern const uint8_t BIG_0[] PROGMEM;
 #endif
 
 
+#define ssd1306oled_font_A_length		95
 #define ssd1306oled_font_A_char_length	6
-extern const char ssd1306oled_font_A[];
+extern char ssd1306oled_font_A[];
+extern uint8_t AtechLogoA_3x19_Font[57];
 
 
 #define ATECH_LOGO_WIDTH	80
 #define ATECH_LOGO_HEIGHT	19
 
-
+#define BIG_NUMS_WIDTH		24
+#define BIG_NUMS_HEIGHT		19
 
 #ifdef __cplusplus
 }

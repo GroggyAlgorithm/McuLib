@@ -108,8 +108,14 @@ extern "C" {
 #define KP_ROWS	                4
 #endif
 
-uint8_t kp_Scan(unsigned char uchrColumnPinPositions[KP_COLUMNS],
+
+extern uint8_t kp_Scan_const(const unsigned char uchrColumnPinPositions[KP_COLUMNS],
+const unsigned char uchrRowPinPositions[KP_ROWS], const unsigned char uchrKeypadValues[KP_ROWS][KP_COLUMNS]);
+
+extern uint8_t kp_Scan(unsigned char uchrColumnPinPositions[KP_COLUMNS],
 unsigned char uchrRowPinPositions[KP_ROWS], unsigned char uchrKeypadValues[KP_ROWS][KP_COLUMNS]);
+
+
 
 #else
 

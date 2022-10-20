@@ -3,6 +3,7 @@
  * \author Tim Robbins
  *
  * \brief Macros and such for pin related utilities
+ * \todo Started adding helpers for interrupt vectors, need to finish maybe
  */ 
 #ifndef MCUPINUTILS_H_
 #define MCUPINUTILS_H_ 1
@@ -13,9 +14,13 @@
 
 #include <avr/io.h>
 
-#define __PIN_UTIL_PREFIX_READ_REG    PIN
-#define __PIN_UTIL_PREFIX_DIR_REG     DDR
-#define __PIN_UTIL_PREFIX_WRITE_REG   PORT
+#define __PIN_UTIL_PREFIX_READ_REG          PIN
+#define __PIN_UTIL_PREFIX_DIR_REG           DDR
+#define __PIN_UTIL_PREFIX_WRITE_REG         PORT
+#define __PIN_UTIL_PIN_CHANGE_INT_PREFIX    PCINT
+#define __PIN_UTIL_EXT_INT_PREFIX           INT
+#define __PIN_UTIL_WDT_INT_PREFIX           WDT
+#define __PIN_UTIL_INT_VECT_POSTFIX         _vect
 
 #elif defined(__XC)
 
@@ -56,6 +61,9 @@
 
 
 #define _NO_PIN_FUNC    -1
+
+
+#pragma region PIN_CHECKS
 
 #ifdef PORTA
 
@@ -277,6 +285,10 @@
 
 #endif
 
+#pragma endregion
+
+#pragma region ADC_CHECKS
+
 #ifdef ADC0D
 #define ADC_0 0
 #endif
@@ -321,9 +333,73 @@
 #define ADC_10 10
 #endif
 
-/// Analog to digital
+#pragma endregion
+
+#pragma region INTERRUPT_VECT_CHECKS
+
+#ifdef PCINT0_vect
+
+#define PCINT_0_TO_7_VECT  PCINT0_vect
+
+#endif
+
+#ifdef PCINT1_vect
+
+#define PCINT_8_TO_15_VECT  PCINT1_vect
+
+#endif
+
+#ifdef PCINT2_vect
+
+#define PCINT_16_TO_23_VECT  PCINT2_vect
+
+#endif
+
+#ifdef PCINT3_vect
+
+#define PCINT_24_TO_31_VECT  PCINT3_vect
+
+#endif
+
+
+
+#ifdef PCMSK0
+
+#define PCINT_0_TO_7_MASK  PCMSK0
+
+#endif
+
+#ifdef PCMSK1
+
+#define PCINT_8_TO_15_MASK  PCMSK1
+
+#endif
+
+#ifdef PCMSK2
+
+#define PCINT_16_TO_23_MASK  PCMSK2
+
+#endif
+
+#ifdef PCMSK3
+
+#define PCINT_24_TO_31_MASK  PCMSK3
+
+#endif
+
+
+#pragma endregion
+
+
+
+
 #if defined(__AVR_ATmega16M1__) || defined(__AVR_ATmega32M1__) || defined(__AVR_ATmega64M1__)
 
+#define P4   _NO_PIN_FUNC
+#define P5   _NO_PIN_FUNC
+#define P19  _NO_PIN_FUNC
+#define P20  _NO_PIN_FUNC
+#define P21  _NO_PIN_FUNC
 
 
 #define TEMPERATURE_SENSOR 11
@@ -467,38 +543,88 @@
 #define CLKO_PIN PIN_D1
 #define PSCIN0_PIN PIN_D1
 
-// #define P4   _NO_PIN_FUNC
-// #define P5   _NO_PIN_FUNC
-// #define P19  _NO_PIN_FUNC
-// #define P20  _NO_PIN_FUNC
-// #define P21  _NO_PIN_FUNC
+
 
 #elif defined(__AVR_ATmega164A__) || defined(__AVR_ATmega164PA__) || defined(__AVR_ATmega324A__) || defined(__AVR_ATmega324PA__) || defined(__AVR_ATmega644A__) || defined(__AVR_ATmega644PA__) || defined(__AVR_ATmega1284__) || defined(__AVR_ATmega1284P__)
 
-#define P1 PIN_B0
-#define XCK0_PIN PIN_B0
-#define T0_PIN PIN_B0
-#define PCINT8_PIN PIN_B0
 
-#define P2 PIN_B1
-#define CLKO_PIN PIN_B1
-#define T1_PIN PIN_B1
-#define PCINT9_PIN PIN_B1
+#define P9              _NO_PIN_FUNC
+#define P10             _NO_PIN_FUNC
+#define P11             _NO_PIN_FUNC
+#define P12             _NO_PIN_FUNC
+#define P13             _NO_PIN_FUNC
+#define P30             _NO_PIN_FUNC
+#define P31             _NO_PIN_FUNC
+#define P32             _NO_PIN_FUNC
 
-#define P3 PIN_B2
-#define AIN0_PIN PIN_B2
-#define INT2_PIN PIN_B2
-#define PCINT10_PIN PIN_B2
 
-#define P4 PIN_B3
-#define OC0A_PIN PIN_B3
-#define AIN1_PIN PIN_B3
-#define PCINT11_PIN PIN_B3
+#define P1_PCINT_NUM        8
+#define T0_PCINT_NUM        8
+#define XCK0_PCINT_NUM      8
 
-#define P5 PIN_B4
-#define OC0B_PIN PIN_B4
-#define SS_PIN PIN_B4
-#define PCINT12_PIN PIN_B4
+#define P2_PCINT_NUM        9
+#define CLKO_PCINT_NUM      9
+#define T1_PCINT_NUM        9
+
+#define P3_PCINT_NUM        10
+#define AIN0_PCINT_NUM      10
+
+#define P4_PCINT_NUM        11
+#define OC0A_PCINT_NUM      11
+#define AIN1_PCINT_NUM      11
+
+#define P5_PCINT_NUM        12
+#define OC0B_PCINT_NUM      12
+#define SS_PCINT_NUM        12
+
+
+#define P1_PCINT_VECT        PCINT_8_TO_15_VECT
+#define T0_PCINT_VECT        PCINT_8_TO_15_VECT
+#define XCK0_PCINT_VECT      PCINT_8_TO_15_VECT
+
+#define P2_PCINT_VECT        PCINT_8_TO_15_VECT
+#define CLKO_PCINT_VECT      PCINT_8_TO_15_VECT
+#define T1_PCINT_VECT        PCINT_8_TO_15_VECT
+
+#define P3_PCINT_VECT        PCINT_8_TO_15_VECT
+#define AIN0_PCINT_VECT      PCINT_8_TO_15_VECT
+
+#define P4_PCINT_VECT        PCINT_8_TO_15_VECT
+#define OC0A_PCINT_VECT      PCINT_8_TO_15_VECT
+#define AIN1_PCINT_VECT      PCINT_8_TO_15_VECT
+
+#define P5_PCINT_VECT        PCINT_8_TO_15_VECT
+#define OC0B_PCINT_VECT      PCINT_8_TO_15_VECT
+#define SS_PCINT_VECT        PCINT_8_TO_15_VECT
+
+
+
+
+
+#define P1              PIN_B0
+#define XCK0_PIN        PIN_B0
+#define T0_PIN          PIN_B0
+#define PCINT8_PIN      PIN_B0
+
+#define P2              PIN_B1
+#define CLKO_PIN        PIN_B1
+#define T1_PIN          PIN_B1
+#define PCINT9_PIN      PIN_B1
+
+#define P3              PIN_B2
+#define AIN0_PIN        PIN_B2
+#define INT2_PIN        PIN_B2
+#define PCINT10_PIN     PIN_B2
+
+#define P4              PIN_B3
+#define OC0A_PIN        PIN_B3
+#define AIN1_PIN        PIN_B3
+#define PCINT11_PIN     PIN_B3
+
+#define P5              PIN_B4
+#define OC0B_PIN        PIN_B4
+#define SS_PIN          PIN_B4
+#define PCINT12_PIN     PIN_B4
 
 #define P6 PIN_B5
 #define MOSI_PIN PIN_B5
@@ -596,17 +722,15 @@
 #define P40 PIN_A0
 #define ADC0_PIN PIN_A0
 
-// #define P9   _NO_PIN_FUNC
-// #define P10  _NO_PIN_FUNC
-// #define P11  _NO_PIN_FUNC
-// #define P12  _NO_PIN_FUNC
-// #define P13  _NO_PIN_FUNC
-
-// #define P30  _NO_PIN_FUNC
-// #define P31  _NO_PIN_FUNC
-// #define P32  _NO_PIN_FUNC
 
 #elif defined(__AVR_ATmega328P__)
+
+#define P7   _NO_PIN_FUNC
+#define P8   _NO_PIN_FUNC
+#define P20  _NO_PIN_FUNC
+#define P21  _NO_PIN_FUNC
+#define P22  _NO_PIN_FUNC
+
 
 #define P1 PIN_C6
 #define RESET_PIN PIN_C6
@@ -712,11 +836,7 @@
 #define PCINT13_PIN PIN_C5
 #define SCL_PIN PIN_C5
 
-// #define P7   _NO_PIN_FUNC
-// #define P8   _NO_PIN_FUNC
-// #define P20  _NO_PIN_FUNC
-// #define P21  _NO_PIN_FUNC
-// #define P22  _NO_PIN_FUNC
+
 
 #endif
 
@@ -731,7 +851,11 @@
 ///Helper for tokenizing 
 #define __PIN_UTIL_TOKENIZE_REG_NAME(reg, t)	_TOKENIZE(reg, t)
 
+///Helper for tokenizing 
+#define __PIN_UTIL_TOKENIZE_INT_NAME(inttype, n) __PIN_UTIL_TOKENIZE_REG_NAME(_TOKENIZE(inttype, n), __PIN_UTIL_INT_VECT_POSTFIX)
 
+///Helper for getting the pin change interrupt related to the pin change interrupt passed
+#define _GET_PCINT_VECT(n)   __PIN_UTIL_TOKENIZE_INT_NAME(__PIN_UTIL_PIN_CHANGE_INT_PREFIX, n)
 
 
 

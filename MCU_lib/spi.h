@@ -74,6 +74,8 @@ extern void SpiInitAltChild();
 	extern void SpiInitParent(uint8_t clockRate, bool msbFirst, bool useSSAsInput);
 	extern void SpiInitChild();
 	extern void SpiTransmit(uint8_t data);
+	extern unsigned char SpiExchangeByte(unsigned char transmissionByte);
+	extern unsigned char SpiExchangeByteOrTimeout(unsigned char transmissionByte, uint16_t timeoutCount);
 	extern uint8_t SpiReceive();
 	extern uint8_t SpiTransmitOrTimeout(uint8_t data, uint16_t timeoutCount);
 	extern uint8_t SpiReceiveOrTimeout(uint16_t timeoutCount);

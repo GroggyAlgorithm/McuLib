@@ -34,19 +34,30 @@ void LcdInit(unsigned char startupSequence[], unsigned char lineStartPositions[]
 	
 	LCD_CONTROL_PORT &= ~(1 << LCD_E_PIN | 1 << LCD_RS_PIN | 1 << LCD_RW_PIN);
 	
+	#if !defined(LCD_USE_4_BIT_MODE) || LCD_USE_4_BIT_MODE != 1
+	
 	//Set the data pins to output
 	writeMaskOutput(LCD_DATA_PORT_DIR, 0xFF);
+
+	#else
+
+	//Set the data pins to output
+	writeMaskOutput(LCD_DATA_PORT_DIR, LCD_4_BIT_DATA_PIN_MASK);
+
+	#endif
 	
 
 	//Loop through the initialization values and send as commands
-	for(index = 0; startupSequence[index] != '\0'; index++) {
+	for(index = 0; startupSequence[index] != '\0'; index++) 
+	{
         currentByte = startupSequence[index];
 		LcdSendCommand(currentByte);
 		delayForMilliseconds(10);
 	}
 	
 	//Copy the line start positions
-	for(index = 0; index < LCD_ROW_COUNT; index++) {
+	for(index = 0; index < LCD_ROW_COUNT; index++) 
+	{
 	 	currentByte = lineStartPositions[index];
 	 	m_auchrLineStartValues[index] = currentByte;
 	 }
@@ -62,7 +73,8 @@ void LcdInit(unsigned char startupSequence[], unsigned char lineStartPositions[]
  * 
  * \return unsigned char The current line
  */
-unsigned char LcdGetCurrentLine() {
+unsigned char LcdGetCurrentLine() 
+{
 	return m_uchrCurrentLine;
 }
 
@@ -74,7 +86,8 @@ unsigned char LcdGetCurrentLine() {
  * 
  * \return unsigned char The current column
  */
-unsigned char LcdGetCurrentColumn() {
+unsigned char LcdGetCurrentColumn() 
+{
 	return m_uchrCurrentColumn;
 }
 
@@ -86,15 +99,33 @@ unsigned char LcdGetCurrentColumn() {
  * 
  * \param cmd The command to send
  */
-void LcdSendCommand(unsigned char cmd) {
+void LcdSendCommand(unsigned char cmd) 
+{
 	LCD_CONTROL_PORT &= ~(1 << LCD_RS_PIN | 1 << LCD_RW_PIN);
 	LCD_CONTROL_PORT |= (1 << LCD_E_PIN);
+	
+
+	#if !defined(LCD_USE_4_BIT_MODE) || LCD_USE_4_BIT_MODE != 1
 	LCD_DATA_PORT &= ~(0xFF);
 	LCD_DATA_PORT |= cmd;
-	LCD_CONTROL_PORT |= (1 << LCD_E_PIN);
-	delayForMicroseconds(1);
 	LCD_CONTROL_PORT &= ~(1 << LCD_E_PIN);
 	delayForMilliseconds(1);
+	#else
+
+	LCD_DATA_PORT &= (~LCD_4_BIT_DATA_PIN_MASK);
+	LCD_DATA_PORT |= (__LCD_4_BIT_VAL_WRITER_HELPER_HIGH(cmd));
+	LCD_CONTROL_PORT &= ~(1 << LCD_E_PIN);
+	delayForMilliseconds(1);
+	LCD_CONTROL_PORT |= (1 << LCD_E_PIN);
+	
+	LCD_DATA_PORT &= (~LCD_4_BIT_DATA_PIN_MASK);
+	LCD_DATA_PORT |= (__LCD_4_BIT_VAL_WRITER_HELPER_LOW(cmd));
+	LCD_CONTROL_PORT &= ~(1 << LCD_E_PIN);
+	delayForMilliseconds(1);
+
+	#endif
+
+	
 }
 
 
@@ -103,15 +134,53 @@ void LcdSendCommand(unsigned char cmd) {
 * \brief Sends a data value to the LCD
 * \param data The data to send
 */
-void LcdSendData(unsigned char data) {
-	LCD_CONTROL_PORT &= ~(1 << LCD_RS_PIN | 1 << LCD_RW_PIN);
-	LCD_CONTROL_PORT |= (1 << LCD_E_PIN);
-	LCD_DATA_PORT &= ~(0xFF);
+void LcdSendData(unsigned char data) 
+{
+	LCD_CONTROL_PORT &= ~(1 << LCD_RW_PIN);
 	LCD_CONTROL_PORT |= (1 << LCD_RS_PIN);
+	LCD_CONTROL_PORT |= (1 << LCD_E_PIN);
+	
+
+	#if !defined(LCD_USE_4_BIT_MODE) || LCD_USE_4_BIT_MODE != 1
+	
+	LCD_DATA_PORT &= ~(0xFF);
 	LCD_DATA_PORT |= data;
-	delayForMicroseconds(1);
 	LCD_CONTROL_PORT &= ~(1 << LCD_E_PIN);
 	delayForMilliseconds(1);
+
+	#else
+
+	LCD_DATA_PORT &= (~LCD_4_BIT_DATA_PIN_MASK);
+	LCD_DATA_PORT |= (__LCD_4_BIT_VAL_WRITER_HELPER_HIGH(data));
+	LCD_CONTROL_PORT &= ~(1 << LCD_E_PIN);
+	delayForMilliseconds(1);
+	LCD_CONTROL_PORT |= (1 << LCD_E_PIN);
+	
+	LCD_DATA_PORT &= (~LCD_4_BIT_DATA_PIN_MASK);
+	LCD_DATA_PORT |= (__LCD_4_BIT_VAL_WRITER_HELPER_LOW(data));
+	LCD_CONTROL_PORT &= ~(1 << LCD_E_PIN);
+	delayForMilliseconds(1);
+
+	#endif
+}
+
+
+
+/**
+* \brief Sends char generator data to the LCD
+*
+*/
+void LcdStoreCGData(unsigned char cgAddress, unsigned char data[], uint8_t dataLength)
+{
+	LCD_set_cg_ram((cgAddress));
+
+	for(unsigned char i=0; i < dataLength; i++) 
+	{
+		LcdSendData(data[i]);
+		delayForMicroseconds(37);
+	}
+	
+	
 }
 
 
@@ -120,24 +189,15 @@ void LcdSendData(unsigned char data) {
 * \brief Waits for the LCD's busy flag to trigger
 *
 */
-void LcdBusyFlagWait() {
-
-
-
-	//Toggle EPin to load any remaining data
-	LCD_CONTROL_PORT |= (1 << LCD_E_PIN);
-	delayForMicroseconds(1);
-	LCD_CONTROL_PORT &= ~(1 << LCD_E_PIN);
-
-	delayForMicroseconds(1);
-	
+void LcdBusyFlagWait() 
+{
 	//Set RW pin for READ mode
 	LCD_CONTROL_PORT &= ~(1 << LCD_RS_PIN);
 	LCD_CONTROL_PORT |= ( 1 << LCD_RW_PIN);
 
 	delayForMilliseconds(20);
 	
-	//Set the busy flag pin to input low
+	//Set the busy flag pin to input
 	LCD_DATA_PORT |= (1 << LCD_BUSY_FLAG_POSITION);
 	
 	setBitInput(LCD_DATA_PORT_DIR, LCD_BUSY_FLAG_POSITION);
@@ -154,7 +214,6 @@ void LcdBusyFlagWait() {
 	//Reset
 	LCD_CONTROL_PORT &= ~(1 << LCD_RS_PIN | 1 << LCD_RW_PIN | 1 << LCD_E_PIN);
 	setBitOutput(LCD_DATA_PORT_DIR, LCD_BUSY_FLAG_POSITION);
-	LCD_DATA_PORT = 0x00;
 }
 
 
@@ -181,7 +240,8 @@ void LcdDisplayOn(bool cursorOn, bool cursorBlink)
 * \brief Clears the line passed
 * \param uchrLine The line to clear
 */
-void LcdClearLine(unsigned char uchrLine) {
+void LcdClearLine(unsigned char uchrLine) 
+{
 	if(uchrLine < LCD_ROW_COUNT) {
 		unsigned char savedColumn = m_uchrCurrentColumn;
 		unsigned char savedRow = m_uchrCurrentLine;
@@ -200,7 +260,8 @@ void LcdClearLine(unsigned char uchrLine) {
 * \param uchrLine The line to clear
 * \param uchrColumn The column to begin clearing at
 */
-void LcdClearLineFromColumn(unsigned char uchrLine, unsigned char uchrColumn) {
+void LcdClearLineFromColumn(unsigned char uchrLine, unsigned char uchrColumn) 
+{
 	if(uchrLine < LCD_ROW_COUNT && uchrColumn < LCD_COLUMN_COUNT - 1) {
 		unsigned char savedColumn = m_uchrCurrentColumn;
 		unsigned char savedRow = m_uchrCurrentLine;
@@ -242,7 +303,8 @@ void LcdClearLineAtColumns(unsigned char uchrLine, unsigned char uchrStartColumn
 * \param uchrLine The line to clear
 * \param uchrColumn The column position to clear
 */
-void LcdClearPosition(unsigned char uchrLine, unsigned char uchrColumn) {
+void LcdClearPosition(unsigned char uchrLine, unsigned char uchrColumn) 
+{
 	if(uchrLine < LCD_ROW_COUNT && uchrColumn < LCD_COLUMN_COUNT - 1) {
 		unsigned char savedColumn = m_uchrCurrentColumn;
 		unsigned char savedRow = m_uchrCurrentLine;
@@ -259,7 +321,8 @@ void LcdClearPosition(unsigned char uchrLine, unsigned char uchrColumn) {
 * \param uchrAddress The address to store the character at
 * \param uchrNewDot The character "dots" to save
 */
-void LcdStoreDotRow(unsigned char uchrAddress, unsigned char uchrNewDot) {
+void LcdStoreDotRow(unsigned char uchrAddress, unsigned char uchrNewDot) 
+{
 	LCD_set_cg_ram(uchrAddress);
 	LcdSendData(uchrNewDot);
 	LcdBusyFlagWait();
@@ -272,11 +335,14 @@ void LcdStoreDotRow(unsigned char uchrAddress, unsigned char uchrNewDot) {
 * \param uchrAddress The address to store the character at
 * \param auchrCharacter Array of the characters "dots" to save
 */
-void LcdStoreCustomCharacter(unsigned char uchrAddress, unsigned char auchrCharacter[8]) {
+void LcdStoreCustomCharacter(unsigned char uchrAddress, unsigned char auchrCharacter[8]) 
+{
+	LcdSendCommand(LCD_CG_RAM_CMD + uchrAddress);
+	
 	for(unsigned char i = 0; i < 8; i++) {
-		LCD_set_cg_ram(uchrAddress + i);
+
 		LcdSendData(auchrCharacter[i]);
-		LcdBusyFlagWait();
+		delayForMicroseconds(10);
 	}
 }
 
@@ -286,16 +352,10 @@ void LcdStoreCustomCharacter(unsigned char uchrAddress, unsigned char auchrChara
 * \brief Reads and returns the address counter from the LCD
 *
 */
-unsigned char LcdGetAddressCounter() {
-	
-	unsigned char address = 0;
-
-	//Toggle EPin to load any remaining data
-	LCD_CONTROL_PORT |= (1 << LCD_E_PIN);
-	delayForMicroseconds(1);
-	LCD_CONTROL_PORT &= ~(1 << LCD_E_PIN);
-
-	delayForMicroseconds(1);
+unsigned char LcdGetAddressCounter() 
+{
+	//Variables
+	unsigned char address = 0; //The address returned
 	
 	//Set RW pin for READ mode
 	LCD_CONTROL_PORT &= ~(1 << LCD_RS_PIN);
@@ -303,9 +363,16 @@ unsigned char LcdGetAddressCounter() {
 
 	delayForMilliseconds(20);
 	
-	//Set the busy flag pin to input low
-	LCD_DATA_PORT |= (1 << LCD_BUSY_FLAG_POSITION);
-	setBitInput(LCD_DATA_PORT_DIR, LCD_BUSY_FLAG_POSITION);
+	//Set the busy flag pin to input
+	
+	#if !defined(LCD_USE_4_BIT_MODE) || LCD_USE_4_BIT_MODE != 1
+	LCD_DATA_PORT |= (0xFF);
+	LCD_DATA_PORT_DIR = (FULL_INPUT);
+	#else
+	LCD_DATA_PORT |= ((1 << LCD_BUSY_FLAG_POSITION) | (1 << LCD_D6) | (1 << LCD_D5) | (1 << LCD_D4));
+	writeMaskInput(LCD_DATA_PORT_DIR, ((1 << LCD_BUSY_FLAG_POSITION) | (1 << LCD_D6) | (1 << LCD_D5) | (1 << LCD_D4)));
+	#endif	
+	
 	
 	//Toggle the E pin while the busy flag is high
 	do
@@ -313,6 +380,7 @@ unsigned char LcdGetAddressCounter() {
 		LCD_CONTROL_PORT |= (1 << LCD_E_PIN);
 		delayForMicroseconds(1);
 		LCD_CONTROL_PORT &= ~(1 << LCD_E_PIN);
+
 	} while (readBit(LCD_DATA_PORT_READ,LCD_BUSY_FLAG_POSITION));
 	
 	address = readBit(LCD_DATA_PORT_READ,LCD_BUSY_FLAG_POSITION);
@@ -320,8 +388,12 @@ unsigned char LcdGetAddressCounter() {
 
 	//Reset
 	LCD_CONTROL_PORT &= ~(1 << LCD_RS_PIN | 1 << LCD_RW_PIN | 1 << LCD_E_PIN);
-	setBitOutput(LCD_DATA_PORT_DIR, LCD_BUSY_FLAG_POSITION);
-	LCD_DATA_PORT = 0x00;
+	
+	#if !defined(LCD_USE_4_BIT_MODE) || LCD_USE_4_BIT_MODE != 1
+	LCD_DATA_PORT_DIR = (FULL_OUTPUT);
+	#else
+	writeMaskOutput(LCD_DATA_PORT_DIR, ((1 << LCD_BUSY_FLAG_POSITION) | (1 << LCD_D6) | (1 << LCD_D5) | (1 << LCD_D4)));
+	#endif
 
 	return address;
 }
@@ -333,11 +405,27 @@ unsigned char LcdGetAddressCounter() {
 * \param uchrLine The line to go to
 * \param uchrColumn The column to go to
 */
-void LcdGoToPosition(unsigned char uchrLine, unsigned char uchrColumn) {
-	if(uchrLine > LCD_ROW_COUNT -1) uchrLine = LCD_ROW_COUNT - 1;
-	if(uchrColumn > LCD_COLUMN_COUNT-1) uchrColumn = LCD_COLUMN_COUNT - 1;
-	m_uchrCurrentColumn = uchrColumn;
-	m_uchrCurrentLine = uchrLine;
+void LcdGoToPosition(unsigned char uchrLine, unsigned char uchrColumn) 
+{
+	if(uchrLine > LCD_ROW_COUNT -1) 
+	{
+		m_uchrCurrentLine = LCD_ROW_COUNT - 1;
+	}
+	else
+	{
+		m_uchrCurrentLine = uchrLine;	
+	}
+	
+	if(uchrColumn > LCD_COLUMN_COUNT-1) 
+	{
+		m_uchrCurrentColumn = LCD_COLUMN_COUNT - 1;
+	}
+	else
+	{
+		m_uchrCurrentColumn = uchrColumn;	
+	}
+	
+	
 	unsigned char uchrNewAddress = ((m_auchrLineStartValues[m_uchrCurrentLine]) + m_uchrCurrentColumn);
 	LCD_set_dd_ram(uchrNewAddress);
 }
@@ -348,7 +436,8 @@ void LcdGoToPosition(unsigned char uchrLine, unsigned char uchrColumn) {
 * \brief Performs the action associated with the command passed. Example: LCD_RETURN_HOME will run the return home command.
 * \param cmd The command to perform
 */
-void LcdPerformCommand(unsigned char cmd) {
+void LcdPerformCommand(unsigned char cmd) 
+{
 	 switch (cmd)
     {
     case LCD_RETURN_HOME://Return home
@@ -454,6 +543,8 @@ void LcdPerformCommand(unsigned char cmd) {
 		
     default:
         break;
+		
+		
     }
 }
 
@@ -463,7 +554,8 @@ void LcdPerformCommand(unsigned char cmd) {
 * \brief Sends a byte as a command if under 0x20(' ') or as a data if over
 * \param uchrByte The data byte to send
 */
-void LcdSendByte(unsigned char uchrByte) {
+void LcdSendByte(unsigned char uchrByte) 
+{
 	if(uchrByte < 0x20) {
         LcdPerformCommand(uchrByte);
     }
@@ -479,7 +571,8 @@ void LcdSendByte(unsigned char uchrByte) {
 * \param uchrByte The data byte to send
 * \param ushtDelayTime The amount of microseconds to delay for
 */
-void LcdSendByteDelay(unsigned char uchrByte, unsigned short ushtDelayTime) {
+void LcdSendByteDelay(unsigned char uchrByte, unsigned short ushtDelayTime) 
+{
 	if(uchrByte < 0x20) {
         LcdPerformCommand(uchrByte);
     }
@@ -498,7 +591,8 @@ void LcdSendByteDelay(unsigned char uchrByte, unsigned short ushtDelayTime) {
 * \param uchrRow The row for the byte to display at
 * \param uchrColumn The column for the byte to display at
 */
-void LcdSendByteAtPosition(unsigned char uchrByte, unsigned char uchrRow, unsigned char uchrColumn) {
+void LcdSendByteAtPosition(unsigned char uchrByte, unsigned char uchrRow, unsigned char uchrColumn) 
+{
 	
 	LcdGoToPosition(uchrRow, uchrColumn);
 
@@ -519,7 +613,8 @@ void LcdSendByteAtPosition(unsigned char uchrByte, unsigned char uchrRow, unsign
 * \param uchrColumn The column for the byte to display at
 * \param ushtDelayTime The amount of microseconds to delay for
 */
-void LcdSendByteDelayAtPosition(unsigned char uchrByte, unsigned char uchrRow, unsigned char uchrColumn, unsigned short ushtDelayTime) {
+void LcdSendByteDelayAtPosition(unsigned char uchrByte, unsigned char uchrRow, unsigned char uchrColumn, unsigned short ushtDelayTime) 
+{
 	
 	LcdGoToPosition(uchrRow, uchrColumn);
 	
@@ -539,7 +634,8 @@ void LcdSendByteDelayAtPosition(unsigned char uchrByte, unsigned char uchrRow, u
 * \brief Prints the passed character verbatim onto the LCD display
 * \param uchrChar The character to print
 */
-void LcdPrintChar(char uchrChar) {
+void LcdPrintChar(char uchrChar) 
+{
 	
 	if(m_uchrCurrentColumn > LCD_COLUMN_COUNT-1) {
 		if(m_uchrCurrentLine > LCD_ROW_COUNT-1) {
@@ -567,7 +663,8 @@ void LcdPrintChar(char uchrChar) {
 * \param uchrChar The character to print
 * \param ushtDelayTime The amount of microseconds to delay for
 */
-void LcdPrintCharDelay(char uchrChar, unsigned short ushtDelayTime) {
+void LcdPrintCharDelay(char uchrChar, unsigned short ushtDelayTime) 
+{
 	
 	if(m_uchrCurrentColumn > LCD_COLUMN_COUNT-1) {
 		if(m_uchrCurrentLine > LCD_ROW_COUNT-1) {
@@ -600,7 +697,8 @@ void LcdPrintCharDelay(char uchrChar, unsigned short ushtDelayTime) {
 * \param uchrRow The row for the character to display at
 * \param uchrColumn The column for the character to display at
 */
-void LcdPrintCharAtPosition(char uchrChar, unsigned char uchrRow, unsigned char uchrColumn) {
+void LcdPrintCharAtPosition(char uchrChar, unsigned char uchrRow, unsigned char uchrColumn) 
+{
 	if(uchrColumn > LCD_COLUMN_COUNT-1) {
 		if(uchrRow > LCD_ROW_COUNT-1) {
 			LcdSendCommand(LCD_CLEAR_SCREEN);
@@ -630,7 +728,8 @@ void LcdPrintCharAtPosition(char uchrChar, unsigned char uchrRow, unsigned char 
 * \param uchrColumn The column for the character to display at
 * \param ushtDelayTime The amount of microseconds to delay for
 */
-void LcdPrintCharDelayAtPosition(char uchrChar, unsigned char uchrRow, unsigned char uchrColumn, unsigned short ushtDelayTime) {
+void LcdPrintCharDelayAtPosition(char uchrChar, unsigned char uchrRow, unsigned char uchrColumn, unsigned short ushtDelayTime) 
+{
 	if(uchrColumn > LCD_COLUMN_COUNT-1) {
 		if(uchrRow > LCD_ROW_COUNT-1) {
 			LcdSendCommand(LCD_CLEAR_SCREEN);
@@ -657,7 +756,8 @@ void LcdPrintCharDelayAtPosition(char uchrChar, unsigned char uchrRow, unsigned 
 * \brief Prints a string verbatim onto the display
 * \param strToSend The string to send
 */
-void LcdPrintString(char* strToSend) {
+void LcdPrintString(char* strToSend) 
+{
 	unsigned char currentByte = 0;
 
 	while(*strToSend)
@@ -676,7 +776,8 @@ void LcdPrintString(char* strToSend) {
 * \param strToSend The string to send
 * \param ushtDelayTime The amount of microseconds to delay for in between each char
 */
-void LcdPrintStringDelay(char* strToSend, unsigned short ushtDelayTime) {
+void LcdPrintStringDelay(char* strToSend, unsigned short ushtDelayTime) 
+{
 	unsigned char currentByte = 0;
 
 	while(*strToSend)
@@ -694,7 +795,8 @@ void LcdPrintStringDelay(char* strToSend, unsigned short ushtDelayTime) {
 * \param uchrRow The row to print at
 * 
 */
-void LcdPrintStringAtPosition(char* strToSend, unsigned char uchrRow, unsigned char uchrColumn) {
+void LcdPrintStringAtPosition(char* strToSend, unsigned char uchrRow, unsigned char uchrColumn) 
+{
 	unsigned char currentByte = 0;
 
 	LcdGoToPosition(uchrRow, uchrColumn);
@@ -715,7 +817,8 @@ void LcdPrintStringAtPosition(char* strToSend, unsigned char uchrRow, unsigned c
 * \param uchrRow The row to print at
 * \param ushtDelayTime The amount of microseconds to delay for in between each char
 */
-void LcdPrintStringDelayAtPosition(char* strToSend, unsigned char uchrRow, unsigned char uchrColumn, unsigned short ushtDelayTime) {
+void LcdPrintStringDelayAtPosition(char* strToSend, unsigned char uchrRow, unsigned char uchrColumn, unsigned short ushtDelayTime) 
+{
 	unsigned char currentByte = 0;
 
 	LcdGoToPosition(uchrRow, uchrColumn);
@@ -733,7 +836,8 @@ void LcdPrintStringDelayAtPosition(char* strToSend, unsigned char uchrRow, unsig
 * \brief Sends a string to the LCD, performs any command characters passed and displays the printable characters passed
 * \param strToSend The string to send
 */
-void LcdPrint(char* strToSend) {
+void LcdPrint(char* strToSend) 
+{
 	unsigned char currentByte = 0;
 	while(*strToSend)
 	{
@@ -749,7 +853,8 @@ void LcdPrint(char* strToSend) {
 * \param strToSend The string to send
 * \param ushtDelayTime The amount of microseconds to delay for in between each char
 */
-void LcdPrintDelay(char* strToSend, unsigned short ushtDelayTime) {
+void LcdPrintDelay(char* strToSend, unsigned short ushtDelayTime) 
+{
 	unsigned char currentByte = 0;
 
 	while(*strToSend)
@@ -767,7 +872,8 @@ void LcdPrintDelay(char* strToSend, unsigned short ushtDelayTime) {
 * \param uchrRow The row to print at
 * \param uchrColumn The column to print at
 */
-void LcdPrintAtPosition(char* strToSend, unsigned char uchrRow, unsigned char uchrColumn) {
+void LcdPrintAtPosition(char* strToSend, unsigned char uchrRow, unsigned char uchrColumn) 
+{
 	unsigned char currentByte = 0;
 	
 	LcdGoToPosition(uchrRow, uchrColumn);
@@ -788,7 +894,8 @@ void LcdPrintAtPosition(char* strToSend, unsigned char uchrRow, unsigned char uc
 * \param uchrColumn The column to print at
 * \param ushtDelayTime The amount of microseconds to delay for in between each char
 */
-void LcdPrintDelayAtPosition(char* strToSend, unsigned char uchrRow, unsigned char uchrColumn, unsigned short ushtDelayTime) {
+void LcdPrintDelayAtPosition(char* strToSend, unsigned char uchrRow, unsigned char uchrColumn, unsigned short ushtDelayTime) 
+{
 	unsigned char currentByte = 0;
 	LcdGoToPosition(uchrRow, uchrColumn);
 
@@ -801,6 +908,420 @@ void LcdPrintDelayAtPosition(char* strToSend, unsigned char uchrRow, unsigned ch
 }
 
 
+
+/**
+* \brief Prints the value onto the screen, numerically
+* \param numVal The value to print numerically
+*/
+void LcdPrintNumericalByte(uint8_t numVal)
+{
+	//Variables
+	uint8_t firstValue = (numVal / 100);
+	uint8_t secondValue = ((numVal / 100) % 10);
+	uint8_t thirdValue = ((numVal % 10));
+	char strToPrint[] = {"   "};
+	//Form the characters
+	if(firstValue > 0)
+	{
+		firstValue += (0x30);
+		secondValue += (0x30);
+		strToPrint[0] = (char)firstValue;
+		strToPrint[1] = (char)secondValue;
+	}
+	else if (secondValue > 0)
+	{
+		secondValue += (0x30);
+		strToPrint[1] = (char)secondValue;
+	}
+	
+	//Always print the 3rd value, 0 or not
+	thirdValue += 0x30;
+	strToPrint[3] = (char)thirdValue;
+	LcdPrintString(strToPrint);	
+}
+
+
+
+/**
+* \brief Prints the value onto the screen, numerically
+* \param numVal The value to print numerically
+* \param ushtDelayTime The time delay in between characters printed
+*/
+void LcdPrintNumericalByteDelay(uint8_t numVal, unsigned short ushtDelayTime)
+{
+	//Variables
+	uint8_t firstValue = (numVal / 100);
+	uint8_t secondValue = ((numVal / 100) % 10);
+	uint8_t thirdValue = ((numVal % 10));
+	char strToPrint[] = {"   "};
+	//Form the characters
+	if(firstValue > 0)
+	{
+		firstValue += (0x30);
+		secondValue += (0x30);
+		strToPrint[0] = (char)firstValue;
+		strToPrint[1] = (char)secondValue;
+	}
+	else if (secondValue > 0)
+	{
+		secondValue += (0x30);
+		strToPrint[1] = (char)secondValue;
+	}
+	
+	//Always print the 3rd value, 0 or not
+	thirdValue += 0x30;
+	strToPrint[3] = (char)thirdValue;
+	LcdPrintStringDelay(strToPrint, ushtDelayTime);
+}
+
+
+
+/**
+* \brief Prints the value onto the screen, numerically
+* \param numVal The value to print numerically
+* \param uchrRow The row to print at
+* \param uchrColumn The column to print at
+*/
+void LcdPrintNumericalByteAtPosition(uint8_t numVal, unsigned char uchrRow, unsigned char uchrColumn)
+{
+	//Variables
+	uint8_t firstValue = (numVal / 100);
+	uint8_t secondValue = ((numVal / 100) % 10);
+	uint8_t thirdValue = ((numVal % 10));
+	char strToPrint[] = {"   "};
+	//Form the characters
+	if(firstValue > 0)
+	{
+		firstValue += (0x30);
+		secondValue += (0x30);
+		strToPrint[0] = (char)firstValue;
+		strToPrint[1] = (char)secondValue;
+	}
+	else if (secondValue > 0)
+	{
+		secondValue += (0x30);
+		strToPrint[1] = (char)secondValue;
+	}
+	
+	//Always print the 3rd value, 0 or not
+	thirdValue += 0x30;
+	strToPrint[3] = (char)thirdValue;
+	LcdPrintStringAtPosition(strToPrint,uchrRow, uchrColumn);
+}
+
+
+
+/**
+* \brief Prints the value onto the screen, numerically
+* \param numVal The value to print numerically
+* \param uchrRow The row to print at
+* \param uchrColumn The column to print at
+* \param ushtDelayTime The time delay in between characters printed
+*/
+void LcdPrintNumericalByteDelayAtPosition(uint8_t numVal, unsigned char uchrRow, unsigned char uchrColumn, unsigned short ushtDelayTime)
+{
+	//Variables
+	uint8_t firstValue = (numVal / 100);
+	uint8_t secondValue = ((numVal / 100) % 10);
+	uint8_t thirdValue = ((numVal % 10));
+	char strToPrint[] = {"   "};
+	//Form the characters
+	if(firstValue > 0)
+	{
+		firstValue += (0x30);
+		secondValue += (0x30);
+		strToPrint[0] = (char)firstValue;
+		strToPrint[1] = (char)secondValue;
+	}
+	else if (secondValue > 0)
+	{
+		secondValue += (0x30);
+		strToPrint[1] = (char)secondValue;
+	}
+	
+	//Always print the 3rd value, 0 or not
+	thirdValue += 0x30;
+	strToPrint[3] = (char)thirdValue;
+	LcdPrintStringDelayAtPosition(strToPrint,uchrRow, uchrColumn, ushtDelayTime);
+}
+
+
+
+/**
+* \brief Prints the value onto the screen, numerically
+* \param numVal The value to print numerically
+*/
+void LcdPrintNumericalShort(uint16_t numVal)
+{
+	//Variables
+	uint8_t firstValue =  (numVal / 10000);
+	uint8_t secondValue = ((numVal / 1000) % 10);
+	uint8_t thirdValue =  ((numVal % 1000)/100);
+	uint8_t fourthValue = ((numVal % 100) / 10);
+	uint8_t fifthValue =  ((numVal % 10));
+	
+	char strToPrint[] = {"     "};
+		
+	//Form the characters
+	if(firstValue > 0)
+	{
+		firstValue += (0x30);
+		secondValue += (0x30);
+		thirdValue += 0x30;
+		fourthValue += 0x30;
+		strToPrint[0] = (char)firstValue;
+		strToPrint[1] = (char)secondValue;
+		strToPrint[2] = (char)thirdValue;
+		strToPrint[3] = (char)fourthValue;
+	}
+	else if (secondValue > 0)
+	{
+		secondValue += (0x30);
+		thirdValue += 0x30;
+		fourthValue += 0x30;
+		strToPrint[1] = (char)secondValue;
+		strToPrint[2] = (char)thirdValue;
+		strToPrint[3] = (char)fourthValue;
+	}
+	else if (thirdValue > 0)
+	{
+		thirdValue += 0x30;
+		fourthValue += 0x30;
+		strToPrint[2] = (char)thirdValue;
+		strToPrint[3] = (char)fourthValue;
+	}
+	else if(fourthValue > 0)
+	{
+		fourthValue += 0x30;
+		strToPrint[3] = (char)fourthValue;
+	}
+	
+	//Always print the last value, 0 or not
+	fifthValue += 0x30;
+	strToPrint[4] = (char)fifthValue;
+	
+	
+	LcdPrintString(strToPrint);
+}
+
+
+
+/**
+* \brief Prints the value onto the screen, numerically
+* \param numVal The value to print numerically
+* \param ushtDelayTime The time delay in between characters printed
+*/
+void LcdPrintNumericalShortDelay(uint16_t numVal, unsigned short ushtDelayTime)
+{
+
+	//Variables
+	uint8_t firstValue =  (numVal / 10000);
+	uint8_t secondValue = ((numVal / 1000) % 10);
+	uint8_t thirdValue =  ((numVal % 1000)/100);
+	uint8_t fourthValue = ((numVal % 100) / 10);
+	uint8_t fifthValue =  ((numVal % 10));
+	
+	char strToPrint[] = {"     "};
+	
+	//Form the characters
+	if(firstValue > 0)
+	{
+		firstValue += (0x30);
+		secondValue += (0x30);
+		thirdValue += 0x30;
+		fourthValue += 0x30;
+		strToPrint[0] = (char)firstValue;
+		strToPrint[1] = (char)secondValue;
+		strToPrint[2] = (char)thirdValue;
+		strToPrint[3] = (char)fourthValue;
+	}
+	else if (secondValue > 0)
+	{
+		secondValue += (0x30);
+		thirdValue += 0x30;
+		fourthValue += 0x30;
+		strToPrint[1] = (char)secondValue;
+		strToPrint[2] = (char)thirdValue;
+		strToPrint[3] = (char)fourthValue;
+	}
+	else if (thirdValue > 0)
+	{
+		thirdValue += 0x30;
+		fourthValue += 0x30;
+		strToPrint[2] = (char)thirdValue;
+		strToPrint[3] = (char)fourthValue;
+	}
+	else if(fourthValue > 0)
+	{
+		fourthValue += 0x30;
+		strToPrint[3] = (char)fourthValue;
+	}
+	
+	//Always print the last value, 0 or not
+	fifthValue += 0x30;
+	strToPrint[4] = (char)fifthValue;
+	
+	
+	LcdPrintStringDelay(strToPrint, ushtDelayTime);
+}
+
+
+
+/**
+* \brief Prints the value onto the screen, numerically
+* \param numVal The value to print numerically
+* \param uchrRow The row to print at
+* \param uchrColumn The column to print at
+*/
+void LcdPrintNumericalShortAtPosition(uint16_t numVal, unsigned char uchrRow, unsigned char uchrColumn)
+{
+	//Variables
+	uint8_t firstValue =  (numVal / 10000);
+	uint8_t secondValue = ((numVal / 1000) % 10);
+	uint8_t thirdValue =  ((numVal % 1000)/100);
+	uint8_t fourthValue = ((numVal % 100) / 10);
+	uint8_t fifthValue =  ((numVal % 10));
+	
+	char strToPrint[] = {"     "};
+	
+	//Form the characters
+	if(firstValue > 0)
+	{
+		firstValue += (0x30);
+		secondValue += (0x30);
+		thirdValue += 0x30;
+		fourthValue += 0x30;
+		strToPrint[0] = (char)firstValue;
+		strToPrint[1] = (char)secondValue;
+		strToPrint[2] = (char)thirdValue;
+		strToPrint[3] = (char)fourthValue;
+	}
+	else if (secondValue > 0)
+	{
+		secondValue += (0x30);
+		thirdValue += 0x30;
+		fourthValue += 0x30;
+		strToPrint[1] = (char)secondValue;
+		strToPrint[2] = (char)thirdValue;
+		strToPrint[3] = (char)fourthValue;
+	}
+	else if (thirdValue > 0)
+	{
+		thirdValue += 0x30;
+		fourthValue += 0x30;
+		strToPrint[2] = (char)thirdValue;
+		strToPrint[3] = (char)fourthValue;
+	}
+	else if(fourthValue > 0)
+	{
+		fourthValue += 0x30;
+		strToPrint[3] = (char)fourthValue;
+	}
+	
+	//Always print the last value, 0 or not
+	fifthValue += 0x30;
+	strToPrint[4] = (char)fifthValue;
+	
+	
+	LcdPrintStringAtPosition(strToPrint,uchrRow, uchrColumn);
+}
+
+
+
+/**
+* \brief Prints the value onto the screen, numerically
+* \param numVal The value to print numerically
+* \param uchrRow The row to print at
+* \param uchrColumn The column to print at
+* \param ushtDelayTime The time delay in between characters printed
+*/
+void LcdPrintNumericalShortDelayAtPosition(uint16_t numVal, unsigned char uchrRow, unsigned char uchrColumn, unsigned short ushtDelayTime)
+{
+	//Variables
+	uint8_t firstValue =  (numVal / 10000);
+	uint8_t secondValue = ((numVal / 1000) % 10);
+	uint8_t thirdValue =  ((numVal % 1000)/100);
+	uint8_t fourthValue = ((numVal % 100) / 10);
+	uint8_t fifthValue =  ((numVal % 10));
+	
+	char strToPrint[] = {"     "};
+	
+	//Form the characters
+	if(firstValue > 0)
+	{
+		firstValue += (0x30);
+		secondValue += (0x30);
+		thirdValue += 0x30;
+		fourthValue += 0x30;
+		strToPrint[0] = (char)firstValue;
+		strToPrint[1] = (char)secondValue;
+		strToPrint[2] = (char)thirdValue;
+		strToPrint[3] = (char)fourthValue;
+	}
+	else if (secondValue > 0)
+	{
+		secondValue += (0x30);
+		thirdValue += 0x30;
+		fourthValue += 0x30;
+		strToPrint[1] = (char)secondValue;
+		strToPrint[2] = (char)thirdValue;
+		strToPrint[3] = (char)fourthValue;
+	}
+	else if (thirdValue > 0)
+	{
+		thirdValue += 0x30;
+		fourthValue += 0x30;
+		strToPrint[2] = (char)thirdValue;
+		strToPrint[3] = (char)fourthValue;
+	}
+	else if(fourthValue > 0)
+	{
+		fourthValue += 0x30;
+		strToPrint[3] = (char)fourthValue;
+	}
+	
+	//Always print the last value, 0 or not
+	fifthValue += 0x30;
+	strToPrint[4] = (char)fifthValue;
+	
+	
+	LcdPrintStringDelayAtPosition(strToPrint,uchrRow, uchrColumn, ushtDelayTime);
+}
+
+
+
+/**
+* \brief Displays the passed byte value as a hexadecimal string
+* \param The byte value to convert to hexadecimal string
+*/
+void LcdDisplayByteHex(uint8_t byteValue)
+{
+	//variables
+	char displayString[] = "0x00";
+	displayString[2] += (char)((byteValue & 0xF0) >> 4);
+	displayString[3] += (char)(byteValue & 0x0F);
+	LcdPrintString(displayString);
+}
+
+
+
+/**
+* \brief Displays the binary of the byte value passed
+* \param byteValue The value to display as binary
+*/
+void LcdDisplayByteBinary(uint8_t byteValue)
+{
+	//variables
+	char displayString[] = "0000 0000";
+	
+	for(uint8_t i = 0; i < 9; i++)
+	{
+		if(displayString[i] != ' ')
+		{
+			displayString[i] += readBit(byteValue, i);
+		}
+	}
+}
 
 
 

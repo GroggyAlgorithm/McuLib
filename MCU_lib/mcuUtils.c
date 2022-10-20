@@ -3,10 +3,13 @@
  * \author Tim Robbins
  * \brief Utilities file for microcontrollers
  */ 
+
+#include "mcuUtils.h"
+
 #ifndef MCUUTILS_C_
 #define MCUUTILS_C_ 1
 
-#include "mcuUtils.h"
+
 
 
 
@@ -44,7 +47,7 @@ uint8_t ConvertRangeToPercentage(uint16_t minValue, uint16_t maxValue, uint16_t 
 		float mathedUpPercentage =  (float)((float)(value-minValue)/(maxValue - minValue));
 		
 		//Multiply this value by 100
-		calculatedValue = 100 - (uint8_t)(mathedUpPercentage * 100);
+		calculatedValue = (uint8_t)(mathedUpPercentage * 100);
 	
 	}
     else

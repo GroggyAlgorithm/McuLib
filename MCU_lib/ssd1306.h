@@ -7,8 +7,9 @@
  * If using SPI, it is required to define SSD1306_CON_PIN_PORT, SSD1306_DC_PIN_POSITION, SSD1306_CS_PORT, SSD1306_CS_PIN_POSITIONS, and SSD1306_RES_PIN_POSITION. \n
  * OPTIONS: SSD1306_DRAW_IMMEDIATE for skipping buffer use and SSD1306_AUTO_CLEAR_BUFF_ON_UPDATE for auto clearing the buffer when updating the display \n
  * You can also specify SSD1306_WIDTH and SSD1306_HEIGHT for the size of the display. \n
+ * Defining SSD1306_SHOW_ERRORS as 1 will have the errors display on the ide console \n
  * It is also required to have "spi.h" and/or "i2c.h" depending on the mode chosen. \n
- * as well as "mcuDelays.h", "mcuUtils.h" \n
+ * as well as "mcuDelays.h", "mcuUtils.h, and mcuPinUtils" \n
  * EXAMPLE DEFINITIONS: \n
  * Having 2 displays: #define SSD1306_CS_PIN_POSITIONS 1, 2 else #define SSD1306_CS_PIN_POSITIONS 1 \n
  * #define SSD1306_SPI 1 OR SSD1306_I2C 1 \n
@@ -61,37 +62,30 @@ extern "C" {
     #include "spi.h"
 
     #if !defined(SSD1306_CON_PIN_PORT)
-        //#error ssd1306.h: SSD1306_CON_PIN_PORT must be defined
         #undef __INCLUDED_SSD1306__
     #endif
     
     #if !defined(SSD1306_DC_PIN_POSITION)
-//        #error ssd1306.h: SSD1306_DC_PIN_POSITION must be defined
         #undef __INCLUDED_SSD1306__
     #endif
 
     #if !defined(SSD1306_CS_PORT)
-//        #error ssd1306.h: SSD1306_CS_PORT must be defined
         #undef __INCLUDED_SSD1306__
     #endif
 
     #if !defined(SSD1306_CS_PIN_POSITIONS)
-//        #error ssd1306.h: SSD1306_CS_PIN_POSITIONS must be defined with all cs pins on the cs port
         #undef __INCLUDED_SSD1306__
     #endif
 
     #if !defined(SSD1306_RES_PIN_POSITION)
-//        #error ssd1306.h: SSD1306_RES_PIN_POSITION must be defined
         #undef __INCLUDED_SSD1306__
     #endif
     
 
 #define SSD1306_SET_DC() SSD1306_CON_PIN_PORT |= (1 << SSD1306_DC_PIN_POSITION)
-#define SSD1306_CS_DESELECT(b) b = 1
 #define SSD1306_SET_RES() SSD1306_CON_PIN_PORT |= (1 << SSD1306_RES_PIN_POSITION)
 
 #define SSD1306_CLEAR_DC()  SSD1306_CON_PIN_PORT &= ~(1 << SSD1306_DC_PIN_POSITION)
-#define SSD1306_CS_SELECT(b)    b = 0
 #define SSD1306_CLEAR_RES() SSD1306_CON_PIN_PORT &= ~(1 << SSD1306_RES_PIN_POSITION)
     
 
@@ -100,7 +94,6 @@ extern "C" {
     #include "i2c.h"
 #else
     #undef __INCLUDED_SSD1306__
-    //#error ssd1306.h: SSD1306_I2C or SSD1306_SPI must be defined as 1 for mode selection
 #endif
 
 
@@ -109,13 +102,11 @@ extern "C" {
 #define MAX_SSD1306_HEIGHT					64
     
 #if !defined(SSD1306_HEIGHT) || SSD1306_HEIGHT > MAX_SSD1306_HEIGHT
-//    #warning ssd1306.h: SSD1306_HEIGHT must be defined or will default to 64
-#define SSD1306_HEIGHT 64
+#define SSD1306_HEIGHT						64
 #endif
     
 #ifndef SSD1306_WIDTH
-//    #warning ssd1306.h: SSD1306_WIDTH must be defined or will default to 128
-#define SSD1306_WIDTH 128
+#define SSD1306_WIDTH						128
 #endif
 
 #if SSD1306_HEIGHT == 32
@@ -186,6 +177,7 @@ extern "C" {
     
 
 
+
 extern void SSD1306SelectDisplay(uint8_t display);
 extern void SSD1306Initialize(bool displayOn, uint8_t currentDisplaySelection);
 extern void SSD1306SendCommand(uint8_t cmd);
@@ -210,9 +202,34 @@ extern void SSD1306PutString(char* s);
 extern void PutP(PGM_P progmemS);
 #endif
 
-extern void SSD1306PutFont(char c, const char fontSheet[], uint8_t fontSheetCharacterLength);
-extern void SSD1306PutFontString(char* s, const char fontSheet[], uint8_t fontSheetCharacterLength);
-extern void SSD1306PutConstString(const char* s, const char fontSheet[], uint8_t fontSheetCharacterLength);
+extern void SSD1306PutFontChar(char c, const char fontSheet[], uint8_t fontSheetCharacterLength);
+
+extern void SSD1306PutFontString
+(
+
+char* s,
+
+uint8_t fontSheetCharacterLength,
+
+char fontSheet[]
+
+);
+
+extern void SSD1306PutFontStringAtLocation(
+char* s, 
+uint8_t fontSheetCharacterLength,
+char fontSheet[], 
+uint8_t x, uint8_t y
+);
+extern void SSD1306WriteFontLine(const char fontSheet[], uint8_t fontSheetCharacterLength) ;
+extern void SSD1306WriteFontToLocation(
+uint8_t fontSheetCharacterLength,
+uint8_t fontSheetCharacterWidth,
+char fontSheet[],
+uint8_t x, uint8_t y
+);
+
+
 extern uint8_t SSD1306DrawPixel(uint8_t x, uint8_t y, uint8_t color);
 extern uint8_t SSD1306DrawLine(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t color);
 extern uint8_t SSD1306DrawRect(uint8_t px1, uint8_t py1, uint8_t px2, uint8_t py2, uint8_t color);
@@ -222,10 +239,13 @@ extern uint8_t SSD1306FillCircle(uint8_t centerX, uint8_t centerY, uint8_t radiu
 extern uint8_t SSD1306DrawBitmap(uint8_t x, uint8_t y, const uint8_t *picture, uint8_t width, uint8_t height, uint8_t color);
 
 
-#if !defined(SSD1306_DRAW_IMMEDIATE) || SSD1306_DRAW_IMMEDIATE < 1
+extern uint8_t SSD1306DrawArea(uint8_t x, uint8_t y, uint8_t *picture, uint8_t width, uint8_t height, uint8_t color);
 
+#if !defined(SSD1306_DRAW_IMMEDIATE) || SSD1306_DRAW_IMMEDIATE < 1
+extern void SSD1306WriteToBuffer(uint8_t data, unsigned char x, unsigned char y);
 extern void SSD1306ClearBuffer();
 extern void SSD1306Update();
+extern void SSD1306UpdateAll() ;
 extern uint8_t SSD1306CheckBuffer(uint8_t x, uint8_t y);
 
 #endif
@@ -240,6 +260,44 @@ extern uint8_t SSD1306CheckBuffer(uint8_t x, uint8_t y);
 #else
 
 #warning ssd1306.h: Check required macro definitions to include file.
+
+#if defined(SSD1306_SHOW_ERRORS) && SSD1306_SHOW_ERRORS == 1
+
+
+    
+#if SSD1306_SPI == 1
+
+    #if !defined(SSD1306_CON_PIN_PORT)
+        #error ssd1306.h: SSD1306_CON_PIN_PORT must be defined
+    #endif
+    
+    #if !defined(SSD1306_DC_PIN_POSITION)
+       #error ssd1306.h: SSD1306_DC_PIN_POSITION must be defined
+    #endif
+
+    #if !defined(SSD1306_CS_PORT)
+       #error ssd1306.h: SSD1306_CS_PORT must be defined
+    #endif
+
+    #if !defined(SSD1306_CS_PIN_POSITIONS)
+       #error ssd1306.h: SSD1306_CS_PIN_POSITIONS must be defined with all cs pins on the cs port
+    #endif
+
+    #if !defined(SSD1306_RES_PIN_POSITION)
+       #error ssd1306.h: SSD1306_RES_PIN_POSITION must be defined
+    #endif
+    
+
+    
+
+
+#else
+    #if !defined(SSD1306_I2C) || SSD1306_I2C != 1
+        #error ssd1306.h: SSD1306_I2C or SSD1306_SPI must be defined as 1 for mode selection
+    #endif
+#endif
+
+#endif
 
 #endif
 
