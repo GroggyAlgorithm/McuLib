@@ -307,7 +307,10 @@ extern "C" {
 
 
 
-    
+extern void LcdConstInit(const unsigned char startupSequence[], const unsigned char lineStartPositions[]);
+extern void LcdStoreCustomConstCharacter(unsigned char uchrAddress, const unsigned char auchrCharacter[8]);
+
+
 extern void LcdInit(unsigned char startupSequence[], unsigned char lineStartPositions[]);
 extern unsigned char LcdGetCurrentLine();
 extern unsigned char LcdGetCurrentColumn();
@@ -351,6 +354,16 @@ extern void LcdSendData(unsigned char data);
 
 ///Helper for sending commands for the DD ram
 #define LCD_set_dd_ram(val)				LcdSendCommand(LCD_DD_RAM_CMD | (val))
+
+///Helper for turning the cursor OFF
+#define LcdCursorOff()					LcdSendCommand(LCD_DISPLAY_ON_NO_CURSOR)
+
+///Helper for turning the cursor On without a blink
+#define LcdCursorOn()					LcdSendCommand(LCD_DISPLAY_ON_NO_BLINK)
+
+///Helper for turning the cursor On with a blink
+#define LcdBlinkingCursorOn()			LcdSendCommand(LCD_DISPLAY_ON_CURSOR_BLINK)
+
 
 extern void LcdStoreCGData(unsigned char cgAddress, unsigned char data[], uint8_t dataLength);
 extern void LcdDisplayOn(bool cursorOn, bool cursorBlink);

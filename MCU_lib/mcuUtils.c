@@ -153,8 +153,8 @@ uint16_t Adc10bitTo5Volts(uint16_t adcValue)
     //The adc value as a voltage
     uint16_t adcVoltage = 0;
     
-    adcPercentage = ConvertRangeToPercentage(1,1024, adcValue);
-    adcVoltage = (ConvertPercentage(50000,adcPercentage)/5); //divided by voltage ref, 5
+    adcPercentage = ConvertRangeToPercentage(0,1024, adcValue);
+    adcVoltage = (ConvertPercentage(5000,adcPercentage)); 
     
     return adcVoltage;
 }

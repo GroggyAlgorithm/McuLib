@@ -8,6 +8,10 @@
 #ifndef MCU_ADC_H_
 #define	MCU_ADC_H_   1
 
+#ifdef	__cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #include "config.h"
 #include "mcuUtils.h"
 
@@ -247,9 +251,7 @@ extern uint16_t AdcSample(adc_channel_t adcChannel, uint8_t sampleCount);
 
 
 
-#ifdef	__cplusplus
-extern "C" {
-#endif /* __cplusplus */
+
 
 
 #ifdef	__cplusplus

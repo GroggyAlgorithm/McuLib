@@ -73,7 +73,7 @@ uint16_t AdcSample(adc_channel_t adcChannel, uint8_t sampleCount)
 
 /**
  * \brief Sets and outputs a passed DAC value
- * @param dacValue the value to load into the DAC data register
+ * \param dacValue the value to load into the DAC data register
  */
 void DacSet(uint16_t dacValue)
 {

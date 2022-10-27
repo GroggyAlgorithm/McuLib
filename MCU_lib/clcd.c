@@ -21,6 +21,71 @@ unsigned char m_uchrCurrentColumn = 0;
 
 
 /**
+* \brief Initializes the LCD from CONST values
+* \param startupSequence The sequence to run through the startup. Should be the initialization sequence in the datasheets followed by any additional commands.
+* \param lineStartPositions The position at the beginning or each line on the display. Must be ordered from top to bottom
+*/
+void LcdConstInit(const unsigned char startupSequence[], const unsigned char lineStartPositions[])
+{
+	//Variables
+	unsigned char index = 0; //Index for looping through the passed arrays.
+	unsigned char currentByte = 0; //The current byte we're on in the parameters.
+	
+	LCD_CONTROL_PORT &= ~(1 << LCD_E_PIN | 1 << LCD_RS_PIN | 1 << LCD_RW_PIN);
+	
+	#if !defined(LCD_USE_4_BIT_MODE) || LCD_USE_4_BIT_MODE != 1
+	
+	//Set the data pins to output
+	writeMaskOutput(LCD_DATA_PORT_DIR, 0xFF);
+
+	#else
+
+	//Set the data pins to output
+	writeMaskOutput(LCD_DATA_PORT_DIR, LCD_4_BIT_DATA_PIN_MASK);
+
+	#endif
+	
+
+	//Loop through the initialization values and send as commands
+	for(index = 0; startupSequence[index] != '\0'; index++)
+	{
+		currentByte = startupSequence[index];
+		LcdSendCommand(currentByte);
+		delayForMilliseconds(10);
+	}
+	
+	//Copy the line start positions
+	for(index = 0; index < LCD_ROW_COUNT; index++)
+	{
+		currentByte = lineStartPositions[index];
+		m_auchrLineStartValues[index] = currentByte;
+	}
+
+	delayForMicroseconds(10);
+}
+
+
+
+/**
+* \brief Creates and stores the custom character at the address passed
+* \param uchrAddress The address to store the character at
+* \param auchrCharacter Array of the characters "dots" to save
+*/
+void LcdStoreCustomConstCharacter(unsigned char uchrAddress, const unsigned char auchrCharacter[8])
+{
+	LcdSendCommand(LCD_CG_RAM_CMD + uchrAddress);
+
+	for(unsigned char i = 0; i < 8; i++) {
+
+		LcdSendData(auchrCharacter[i]);
+		delayForMicroseconds(10);
+	}
+	
+}
+
+
+
+/**
 * \brief Lcd initializer function. Runs through the startup sequence passed and copies the line start positions passed.
 * \param startupSequence The sequence to run through the startup. Should be the initialization sequence in the datasheets followed by any additional commands.
 * \param lineStartPositions The position at the beginning or each line on the display. Must be ordered from top to bottom
@@ -917,9 +982,9 @@ void LcdPrintNumericalByte(uint8_t numVal)
 {
 	//Variables
 	uint8_t firstValue = (numVal / 100);
-	uint8_t secondValue = ((numVal / 100) % 10);
+	uint8_t secondValue = ((numVal / 10) % 10);
 	uint8_t thirdValue = ((numVal % 10));
-	char strToPrint[] = {"   "};
+	char strToPrint[3] = {"   "};
 	//Form the characters
 	if(firstValue > 0)
 	{
@@ -936,8 +1001,12 @@ void LcdPrintNumericalByte(uint8_t numVal)
 	
 	//Always print the 3rd value, 0 or not
 	thirdValue += 0x30;
-	strToPrint[3] = (char)thirdValue;
-	LcdPrintString(strToPrint);	
+	strToPrint[2] = (char)thirdValue;
+	
+	for(uint8_t i = 0; i < 3; i++)
+	{
+		LcdPrintChar(strToPrint[i]);	
+	}
 }
 
 
@@ -951,9 +1020,9 @@ void LcdPrintNumericalByteDelay(uint8_t numVal, unsigned short ushtDelayTime)
 {
 	//Variables
 	uint8_t firstValue = (numVal / 100);
-	uint8_t secondValue = ((numVal / 100) % 10);
+	uint8_t secondValue = ((numVal / 10) % 10);
 	uint8_t thirdValue = ((numVal % 10));
-	char strToPrint[] = {"   "};
+	char strToPrint[3] = {"   "};
 	//Form the characters
 	if(firstValue > 0)
 	{
@@ -970,8 +1039,13 @@ void LcdPrintNumericalByteDelay(uint8_t numVal, unsigned short ushtDelayTime)
 	
 	//Always print the 3rd value, 0 or not
 	thirdValue += 0x30;
-	strToPrint[3] = (char)thirdValue;
-	LcdPrintStringDelay(strToPrint, ushtDelayTime);
+	strToPrint[2] = (char)thirdValue;
+	
+	
+	for(uint8_t i = 0; i < 3; i++)
+	{
+		LcdPrintCharDelay(strToPrint[i],ushtDelayTime);	
+	}
 }
 
 
@@ -986,9 +1060,9 @@ void LcdPrintNumericalByteAtPosition(uint8_t numVal, unsigned char uchrRow, unsi
 {
 	//Variables
 	uint8_t firstValue = (numVal / 100);
-	uint8_t secondValue = ((numVal / 100) % 10);
+	uint8_t secondValue = ((numVal / 10) % 10);
 	uint8_t thirdValue = ((numVal % 10));
-	char strToPrint[] = {"   "};
+	char strToPrint[3] = {"   "};
 	//Form the characters
 	if(firstValue > 0)
 	{
@@ -1005,8 +1079,14 @@ void LcdPrintNumericalByteAtPosition(uint8_t numVal, unsigned char uchrRow, unsi
 	
 	//Always print the 3rd value, 0 or not
 	thirdValue += 0x30;
-	strToPrint[3] = (char)thirdValue;
-	LcdPrintStringAtPosition(strToPrint,uchrRow, uchrColumn);
+	strToPrint[2] = (char)thirdValue;
+	
+	LcdGoToPosition(uchrRow, uchrColumn);
+	
+	for(uint8_t i = 0; i < 3; i++)
+	{
+		LcdPrintChar(strToPrint[i]);	
+	}
 }
 
 
@@ -1022,9 +1102,9 @@ void LcdPrintNumericalByteDelayAtPosition(uint8_t numVal, unsigned char uchrRow,
 {
 	//Variables
 	uint8_t firstValue = (numVal / 100);
-	uint8_t secondValue = ((numVal / 100) % 10);
+	uint8_t secondValue = ((numVal / 10) % 10);
 	uint8_t thirdValue = ((numVal % 10));
-	char strToPrint[] = {"   "};
+	char strToPrint[3] = {"   "};
 	//Form the characters
 	if(firstValue > 0)
 	{
@@ -1041,8 +1121,14 @@ void LcdPrintNumericalByteDelayAtPosition(uint8_t numVal, unsigned char uchrRow,
 	
 	//Always print the 3rd value, 0 or not
 	thirdValue += 0x30;
-	strToPrint[3] = (char)thirdValue;
-	LcdPrintStringDelayAtPosition(strToPrint,uchrRow, uchrColumn, ushtDelayTime);
+	strToPrint[2] = (char)thirdValue;
+	
+	LcdGoToPosition(uchrRow, uchrColumn);
+	
+	for(uint8_t i = 0; i < 3; i++)
+	{
+		LcdPrintCharDelay(strToPrint[i],ushtDelayTime);	
+	}
 }
 
 
@@ -1060,7 +1146,7 @@ void LcdPrintNumericalShort(uint16_t numVal)
 	uint8_t fourthValue = ((numVal % 100) / 10);
 	uint8_t fifthValue =  ((numVal % 10));
 	
-	char strToPrint[] = {"     "};
+	char strToPrint[5] = {"     "};
 		
 	//Form the characters
 	if(firstValue > 0)
@@ -1101,7 +1187,11 @@ void LcdPrintNumericalShort(uint16_t numVal)
 	strToPrint[4] = (char)fifthValue;
 	
 	
-	LcdPrintString(strToPrint);
+
+	for(uint8_t i = 0; i < 5; i++)
+	{
+		LcdPrintChar(strToPrint[i]);	
+	}
 }
 
 
@@ -1121,7 +1211,7 @@ void LcdPrintNumericalShortDelay(uint16_t numVal, unsigned short ushtDelayTime)
 	uint8_t fourthValue = ((numVal % 100) / 10);
 	uint8_t fifthValue =  ((numVal % 10));
 	
-	char strToPrint[] = {"     "};
+	char strToPrint[5] = {"     "};
 	
 	//Form the characters
 	if(firstValue > 0)
@@ -1162,7 +1252,11 @@ void LcdPrintNumericalShortDelay(uint16_t numVal, unsigned short ushtDelayTime)
 	strToPrint[4] = (char)fifthValue;
 	
 	
-	LcdPrintStringDelay(strToPrint, ushtDelayTime);
+
+	for(uint8_t i = 0; i < 5; i++)
+	{
+		LcdPrintCharDelay(strToPrint[i],ushtDelayTime);	
+	}
 }
 
 
@@ -1182,7 +1276,7 @@ void LcdPrintNumericalShortAtPosition(uint16_t numVal, unsigned char uchrRow, un
 	uint8_t fourthValue = ((numVal % 100) / 10);
 	uint8_t fifthValue =  ((numVal % 10));
 	
-	char strToPrint[] = {"     "};
+	char strToPrint[5] = {"     "};
 	
 	//Form the characters
 	if(firstValue > 0)
@@ -1223,7 +1317,12 @@ void LcdPrintNumericalShortAtPosition(uint16_t numVal, unsigned char uchrRow, un
 	strToPrint[4] = (char)fifthValue;
 	
 	
-	LcdPrintStringAtPosition(strToPrint,uchrRow, uchrColumn);
+	LcdGoToPosition(uchrRow, uchrColumn);
+	
+	for(uint8_t i = 0; i < 5; i++)
+	{
+		LcdPrintChar(strToPrint[i]);	
+	}
 }
 
 
@@ -1244,7 +1343,7 @@ void LcdPrintNumericalShortDelayAtPosition(uint16_t numVal, unsigned char uchrRo
 	uint8_t fourthValue = ((numVal % 100) / 10);
 	uint8_t fifthValue =  ((numVal % 10));
 	
-	char strToPrint[] = {"     "};
+	char strToPrint[5] = {"     "};
 	
 	//Form the characters
 	if(firstValue > 0)
@@ -1284,8 +1383,13 @@ void LcdPrintNumericalShortDelayAtPosition(uint16_t numVal, unsigned char uchrRo
 	fifthValue += 0x30;
 	strToPrint[4] = (char)fifthValue;
 	
+	LcdGoToPosition(uchrRow, uchrColumn);
 	
-	LcdPrintStringDelayAtPosition(strToPrint,uchrRow, uchrColumn, ushtDelayTime);
+	for(uint8_t i = 0; i < 5; i++)
+	{
+		LcdPrintCharDelay(strToPrint[i],ushtDelayTime);	
+	}
+	
 }
 
 
@@ -1297,7 +1401,7 @@ void LcdPrintNumericalShortDelayAtPosition(uint16_t numVal, unsigned char uchrRo
 void LcdDisplayByteHex(uint8_t byteValue)
 {
 	//variables
-	char displayString[] = "0x00";
+	char displayString[4] = "0x00";
 	displayString[2] += (char)((byteValue & 0xF0) >> 4);
 	displayString[3] += (char)(byteValue & 0x0F);
 	LcdPrintString(displayString);
@@ -1311,16 +1415,19 @@ void LcdDisplayByteHex(uint8_t byteValue)
 */
 void LcdDisplayByteBinary(uint8_t byteValue)
 {
-	//variables
-	char displayString[] = "0000 0000";
-	
-	for(uint8_t i = 0; i < 9; i++)
+	for(uint8_t i = 0, j = 0; i < 9; i++)
 	{
-		if(displayString[i] != ' ')
+		if(i == 4)
 		{
-			displayString[i] += readBit(byteValue, i);
+			LcdPrintChar(' ');
+		}
+		else
+		{
+			LcdPrintChar(readBit(byteValue,j)+0x30);
+			j++;
 		}
 	}
+	
 }
 
 
