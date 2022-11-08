@@ -1,7 +1,7 @@
 /**
  * \file config.h
  * \author Tim Robbins
- * \brief The project configuration file for project definitions.
+ * \brief The project mcu_lib configuration file for mcu_lib definitions.
  */
 #ifndef CONFIG_H_
 #define CONFIG_H_   1
@@ -17,56 +17,6 @@
 ///The frequency being used for the controller
 #define _XTAL_FREQ                                  64000000
 
-
-//For testing
-#define STEPPER_CW_BTN_READ							PORTEbits.RE0
-#define STEPPER_CCW_BTN_READ						PORTEbits.RE1
-
-#define STEPPER_CW_BTN_DIR							TRISEbits.TRISE0
-#define STEPPER_CCW_BTN_DIR							TRISEbits.TRISE1
-
-#define STEPPER_CW_BTN_PIN							LATEbits.LATE0
-#define STEPPER_CCW_BTN_PIN							LATEbits.LATE1
-
-
-#define STEPPER_CW_WPU								WPUEbits.WPUE0
-#define STEPPER_CCW_WPU								WPUEbits.WPUE1
-
-#define STEPPER_CW_ANSEL							ANSELEbits.ANSELE0
-#define STEPPER_CCW_ANSEL							ANSELEbits.ANSELE1
-
-
-
-#define BLOWER_PWM_PIN                              LATBbits.LATB4
-#define BLOWER_PWM_PIN_DIR                          TRISBbits.TRISB4
-
-
-#define LCD_ROW_COUNT								4
-#define LCD_COLUMN_COUNT							20
-
-#define LCD_CONTROL_PORT							LATA
-#define LCD_RS_PIN									0
-#define LCD_RW_PIN									1
-#define LCD_E_PIN									2
-
-#define LCD_DATA_PORT								LATD
-#define LCD_DATA_PORT_READ							PORTD
-#define LCD_DATA_PORT_DIR							TRISD
-#define LCD_BUSY_FLAG_POSITION						7
-
-#define SSD1306_DRAW_IMMEDIATE						1
-#define SSD1306_SPI									1
-#define SSD1306_CON_PIN_PORT						LATA
-#define SSD1306_RES_PIN_POSITION					0
-#define SSD1306_DC_PIN_POSITION						1
-
-#define SSD1306_CS_PORT								LATC
-#define SSD1306_CS_PIN_POSITIONS					6
-
-////Unused, for testing
-//
-#define SSD1306_AUTO_CLEAR_BUFF_ON_UPDATE			1
-#define SSD1306_DRAW_PIXELS_DIRECTLY				1
 
 #else
 
