@@ -10,6 +10,11 @@
 
 #include "mcuUtils.h"
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunknown-pragmas" 
+#endif
+
 #ifdef __AVR
 
 #include <avr/io.h>
@@ -1076,7 +1081,9 @@
 ///Writes a port to the value passed Takes the literal letter(PORTA would be A) and the value.
 #define PORT_WRITE(port_letter, val)			GET_PORT(port_letter) = val
 
-
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 
 

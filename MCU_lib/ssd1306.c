@@ -76,7 +76,7 @@ void SSD1306Initialize(bool displayOn, uint8_t currentDisplaySelection)
 	//SSD1306ClearBuffer();
 	
 	//Make sure buffer is cleared and initialized
-	for(uint8_t y, x = 0; y < SSD1306_HEIGHT; x++)
+	for(uint8_t y = 0, x = 0; y < SSD1306_HEIGHT; x++)
 	{
 		
 		if(x >= SSD1306_WIDTH)
@@ -933,7 +933,7 @@ uint8_t SSD1306DrawLine(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t 
  * \return uint8_t The result of drawing onto the oled display
  */
 uint8_t SSD1306DrawRect(uint8_t px1, uint8_t py1, uint8_t px2, uint8_t py2, uint8_t color) {
-	uint8_t result;
+	uint8_t result=0;
 	
 	result = SSD1306DrawLine(px1, py1, px2, py1, color);
 	result = SSD1306DrawLine(px2, py1, px2, py2, color);
@@ -957,7 +957,7 @@ uint8_t SSD1306DrawRect(uint8_t px1, uint8_t py1, uint8_t px2, uint8_t py2, uint
  * \return uint8_t The result of drawing onto the oled display
  */
 uint8_t SSD1306FillRect(uint8_t px1, uint8_t py1, uint8_t px2, uint8_t py2, uint8_t color) {
-	uint8_t result;
+	uint8_t result=0;
 			
 	if( px1 > px2) {
         
@@ -990,7 +990,7 @@ uint8_t SSD1306FillRect(uint8_t px1, uint8_t py1, uint8_t px2, uint8_t py2, uint
  * \return uint8_t -The result of drawing onto the screen
  */
 uint8_t SSD1306DrawCircle(uint8_t centerX, uint8_t centerY, uint8_t radius, uint8_t color) {
-	uint8_t result;
+	uint8_t result=0;
 			
 	int16_t f = 1 - radius;
 	int16_t ddF_x = 1;
@@ -1038,7 +1038,7 @@ uint8_t SSD1306DrawCircle(uint8_t centerX, uint8_t centerY, uint8_t radius, uint
  * \return uint8_t -The result of drawing onto the screen
  */
 uint8_t SSD1306FillCircle(uint8_t center_x, uint8_t center_y, uint8_t radius, uint8_t color) {
-	uint8_t result;
+	uint8_t result=0;
 	for(uint8_t i=0; i<= radius;i++){
 		result = SSD1306DrawCircle(center_x, center_y, i, color);
 	}
@@ -1061,7 +1061,7 @@ uint8_t SSD1306FillCircle(uint8_t center_x, uint8_t center_y, uint8_t radius, ui
  */
 uint8_t SSD1306DrawBitmap(uint8_t x, uint8_t y, const uint8_t *picture, uint8_t width, uint8_t height, uint8_t color) 
 {
-	uint8_t result,i,j, byteWidth = (width+7)/8;
+	uint8_t result=0,i=0,j=0, byteWidth = (width+7)/8;
 	
 	for (j = 0; j < height; j++) {
 		for(i=0; i < width;i++){

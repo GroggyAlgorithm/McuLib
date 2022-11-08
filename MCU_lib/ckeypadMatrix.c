@@ -23,19 +23,33 @@ const unsigned char uchrRowPinPositions[KP_ROWS], const unsigned char uchrKeypad
 	volatile uint8_t currentColumnPress = 0; //The currently pressed column value
 	volatile uint8_t currentRowPress = 0; //The currently pressed row value
 	uint8_t pressedValue = '\0'; //The return value for the entered value
+	uint8_t columnMask = 0; //Mask for the column pins
+	uint8_t rowMask = 0; //Mask for the row pins
+	
+	//Loop through and create a mask for the columns
+	for(i = 0; i < KP_COLUMNS; i++)
+	{
+		columnMask |= (1 << uchrColumnPinPositions[i]);
+	}
+	
+	//Loop through and create a mask for the rows
+	for(i = 0; i < KP_ROWS; i++)
+	{
+		rowMask |= (1 << uchrRowPinPositions[i]);
+	}
+	
+	//Make sure index is reset
+	i=0;
 	
 	//Set ports initial values.
 	
 	//Output, input initially to not cross contaminate key presses
-	writeMaskInput(KP_COLUMN_DIR, KP_COLUMN_PIN_MSK);
-	KP_COLUMN_PORT |= KP_COLUMN_PIN_MSK;
-	
+	writeMaskInput(KP_COLUMN_DIR, columnMask);
+	KP_COLUMN_PORT |= columnMask;
 	
 	//Input pull up
-	writeMaskInput(KP_ROW_DIR, KP_ROW_PIN_MSK);
-	KP_ROW_PORT |= (KP_ROW_PIN_MSK);
-	
-	
+	writeMaskInput(KP_ROW_DIR, rowMask);
+	KP_ROW_PORT |= (rowMask);
 	
 	
 	//Loop through and check for columns
@@ -49,7 +63,7 @@ const unsigned char uchrRowPinPositions[KP_ROWS], const unsigned char uchrKeypad
 		delayForMicroseconds(1);
 		
 		//Read the value on the row pins
-		currentRowPress = (KP_ROW_READ & KP_ROW_PIN_MSK);
+		currentRowPress = (KP_ROW_READ & rowMask);
 		
 		//Slight delay for time to take affect
 		delayForMicroseconds(1);
@@ -59,19 +73,19 @@ const unsigned char uchrRowPinPositions[KP_ROWS], const unsigned char uchrKeypad
 		setBitInput(KP_COLUMN_DIR, uchrColumnPinPositions[i]);
 		
 		//If there is a value indicating a key press...
-		if(currentRowPress != KP_ROW_PIN_MSK)
+		if(currentRowPress != rowMask)
 		{
 			
 			//Invert the pins
 			
 			//Output, input initially to not cross contaminate key presses
-			writeMaskInput(KP_ROW_DIR, KP_ROW_PIN_MSK);
-			KP_ROW_PORT |= KP_ROW_PIN_MSK;
+			writeMaskInput(KP_ROW_DIR, rowMask);
+			KP_ROW_PORT |= rowMask;
 			
 			
 			//Input pull up
-			writeMaskInput(KP_COLUMN_DIR, KP_COLUMN_PIN_MSK);
-			KP_COLUMN_PORT |= (KP_COLUMN_PIN_MSK);
+			writeMaskInput(KP_COLUMN_DIR, columnMask);
+			KP_COLUMN_PORT |= (columnMask);
 			
 			//Slight delay for time to take affect
 			delayForMicroseconds(1);
@@ -87,10 +101,10 @@ const unsigned char uchrRowPinPositions[KP_ROWS], const unsigned char uchrKeypad
 				delayForMicroseconds(1);
 				
 				//Read the value on the column pins
-				currentColumnPress = (KP_COLUMN_READ & KP_COLUMN_PIN_MSK);
+				currentColumnPress = (KP_COLUMN_READ & columnMask);
 				
 				//If there is a value indicating a key press...
-				if(currentColumnPress != KP_COLUMN_PIN_MSK)
+				if(currentColumnPress != columnMask)
 				{
 					//We found our value
 					return uchrKeypadValues[j][i];
@@ -101,15 +115,14 @@ const unsigned char uchrRowPinPositions[KP_ROWS], const unsigned char uchrKeypad
 				KP_ROW_PORT &= ~(1 << uchrRowPinPositions[j]);
 				
 			}
-			
 			//Output, input initially to not cross contaminate key presses
-			writeMaskInput(KP_COLUMN_DIR, KP_COLUMN_PIN_MSK);
-			KP_COLUMN_PORT |= KP_COLUMN_PIN_MSK;
+			writeMaskInput(KP_COLUMN_DIR, columnMask);
+			KP_COLUMN_PORT |= columnMask;
 			
 			
 			//Input pull up
-			writeMaskInput(KP_ROW_DIR, KP_ROW_PIN_MSK);
-			KP_ROW_PORT |= (KP_ROW_PIN_MSK);
+			writeMaskInput(KP_ROW_DIR, rowMask);
+			KP_ROW_PORT |= (rowMask);
 		}
 		
 		
@@ -140,21 +153,35 @@ unsigned char uchrRowPinPositions[KP_ROWS], unsigned char uchrKeypadValues[KP_RO
 	volatile uint8_t currentColumnPress = 0; //The currently pressed column value
 	volatile uint8_t currentRowPress = 0; //The currently pressed row value
 	uint8_t pressedValue = '\0'; //The return value for the entered value
+	uint8_t columnMask = 0; //Mask for the column pins
+	uint8_t rowMask = 0; //Mask for the row pins
+	
+	//Loop through and create a mask for the columns
+	for(i = 0; i < KP_COLUMNS; i++)
+	{
+		columnMask |= (1 << uchrColumnPinPositions[i]);
+	}
+	
+	//Loop through and create a mask for the rows
+	for(i = 0; i < KP_ROWS; i++)
+	{
+		rowMask |= (1 << uchrRowPinPositions[i]);
+	}
+	
+	//Make sure index is reset
+	i=0;
 	
 	//Set ports initial values.
 	
 	//Output, input initially to not cross contaminate key presses
-	writeMaskInput(KP_COLUMN_DIR, KP_COLUMN_PIN_MSK);
-	KP_COLUMN_PORT |= KP_COLUMN_PIN_MSK;
-	
+	writeMaskInput(KP_COLUMN_DIR, columnMask);
+	KP_COLUMN_PORT |= columnMask;
 	
 	//Input pull up
-	writeMaskInput(KP_ROW_DIR, KP_ROW_PIN_MSK);
-	KP_ROW_PORT |= (KP_ROW_PIN_MSK);
+	writeMaskInput(KP_ROW_DIR, rowMask);
+	KP_ROW_PORT |= (rowMask);
 	
 	
-	
-		
 	//Loop through and check for columns
 	for(i = 0; i < KP_COLUMNS; i++)
 	{
@@ -166,7 +193,7 @@ unsigned char uchrRowPinPositions[KP_ROWS], unsigned char uchrKeypadValues[KP_RO
 		delayForMicroseconds(1);
 		
 		//Read the value on the row pins
-		currentRowPress = (KP_ROW_READ & KP_ROW_PIN_MSK);
+		currentRowPress = (KP_ROW_READ & rowMask);
 		
 		//Slight delay for time to take affect
 		delayForMicroseconds(1);
@@ -176,19 +203,19 @@ unsigned char uchrRowPinPositions[KP_ROWS], unsigned char uchrKeypadValues[KP_RO
 		setBitInput(KP_COLUMN_DIR, uchrColumnPinPositions[i]);
 		
 		//If there is a value indicating a key press...
-		if(currentRowPress != KP_ROW_PIN_MSK)
+		if(currentRowPress != rowMask)
 		{
 			
 			//Invert the pins
 			
 			//Output, input initially to not cross contaminate key presses
-			writeMaskInput(KP_ROW_DIR, KP_ROW_PIN_MSK);
-			KP_ROW_PORT |= KP_ROW_PIN_MSK;
+			writeMaskInput(KP_ROW_DIR, rowMask);
+			KP_ROW_PORT |= rowMask;
 			
 			
 			//Input pull up
-			writeMaskInput(KP_COLUMN_DIR, KP_COLUMN_PIN_MSK);
-			KP_COLUMN_PORT |= (KP_COLUMN_PIN_MSK);
+			writeMaskInput(KP_COLUMN_DIR, columnMask);
+			KP_COLUMN_PORT |= (columnMask);
 			
 			//Slight delay for time to take affect
 			delayForMicroseconds(1);
@@ -204,10 +231,10 @@ unsigned char uchrRowPinPositions[KP_ROWS], unsigned char uchrKeypadValues[KP_RO
 				delayForMicroseconds(1);
 				
 				//Read the value on the column pins
-				currentColumnPress = (KP_COLUMN_READ & KP_COLUMN_PIN_MSK);
+				currentColumnPress = (KP_COLUMN_READ & columnMask);
 				
 				//If there is a value indicating a key press...
-				if(currentColumnPress != KP_COLUMN_PIN_MSK)
+				if(currentColumnPress != columnMask)
 				{
 					//We found our value
 					return uchrKeypadValues[j][i];
@@ -218,15 +245,14 @@ unsigned char uchrRowPinPositions[KP_ROWS], unsigned char uchrKeypadValues[KP_RO
 				KP_ROW_PORT &= ~(1 << uchrRowPinPositions[j]);
 				
 			}
-			
 			//Output, input initially to not cross contaminate key presses
-			writeMaskInput(KP_COLUMN_DIR, KP_COLUMN_PIN_MSK);
-			KP_COLUMN_PORT |= KP_COLUMN_PIN_MSK;
-	
-	
+			writeMaskInput(KP_COLUMN_DIR, columnMask);
+			KP_COLUMN_PORT |= columnMask;
+			
+			
 			//Input pull up
-			writeMaskInput(KP_ROW_DIR, KP_ROW_PIN_MSK);
-			KP_ROW_PORT |= (KP_ROW_PIN_MSK);
+			writeMaskInput(KP_ROW_DIR, rowMask);
+			KP_ROW_PORT |= (rowMask);
 		}
 		
 		

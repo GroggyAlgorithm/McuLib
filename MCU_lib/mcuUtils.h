@@ -724,17 +724,24 @@ typedef union _NIBBLE_SPLIT_UNION_
 
 
 
-
-
-
+/**
+* \brief Calculates the top value needed based off of the global cpu speed/(prescaler * (1+hertz). Replacing hertz with the value for TOP will give you the hertz generated
+* \param cpuSpeed The speed of the CPU in HERTZ
+* \param prescaler The value of the prescaler. Ex: prescaler 256
+* \param hertz The value for the hertz desired. Replacing this with an already know TOP value will give you the hertz created.
+* \return The TOP value needed to create a frequency at X hertz, or if entering a know top value, the hertz.
+*/
+inline uint32_t CalculateFrequencyTop(uint32_t cpuSpeed, uint16_t prescaler, uint16_t hertz)
+{
+	return (cpuSpeed / (prescaler * ( 1 + hertz)));
+}
+extern void ShortToCharArray(char valueAsCharArray[6], uint16_t numVal, uint8_t ignoreInitialEmpties);
 extern uint8_t ConvertRangeToPercentage(uint16_t minValue, uint16_t maxValue, uint16_t value);
 extern uint16_t ConvertPercentageInRange(uint16_t minValue, uint16_t maxValue, uint16_t percentageValue);
 extern uint16_t ConvertPercentage(uint16_t maxValue, uint16_t percentageValue);
 extern uint16_t Adc10bitTo5Volts(uint16_t adcValue);
 extern uint16_t ClockCountsFor16BitFreq(uint64_t systemFreq, uint16_t prescaler, uint16_t freqInHz, uint16_t *overflowCounts);
 extern uint8_t ClockCountsFor8BitFreq(uint64_t systemFreq, uint16_t prescaler, uint16_t freqInHz, uint16_t *overflowCounts);
-extern uint16_t ClockCountsFor16BitTime(uint64_t systemFreq, uint16_t prescaler, float seconds, uint16_t *overflowCounts);
-extern uint8_t ClockCountsFor8BitTime(uint64_t systemFreq, uint16_t prescaler, uint16_t seconds, uint16_t *overflowCounts);
 
 
 #ifdef	__cplusplus

@@ -2,9 +2,10 @@
  * \file ckeypadMatrix.h
  * \author Tim Robbins
  * \brief header file for keypad interfacing \n
+ * \version v2.0
  * REQUIREMENTS: \n
  * "config.h", "mcuUtils.h", and "mcuDelays.h" must be included. \n
- * KP_COLUMN_PORT, KP_COLUMN_READ, KP_COLUMN_DIR, KP_ROW_PORT, KP_ROW_READ, KP_ROW_DIR, KP_COLUMN_PIN_MSK, and KP_ROW_PIN_MSK must be defined.
+ * KP_COLUMN_PORT, KP_COLUMN_READ, KP_COLUMN_DIR, KP_ROW_PORT, KP_ROW_READ, KP_ROW_DIR. Previous separate masks were required to be defined but it was a confusing waste.
  */
 #include "config.h"
 
@@ -77,18 +78,6 @@ extern "C" {
 
 #ifndef KP_ROW_DIR
 //#warning ckeypadMatrix.h: KP_ROW_DIR must be defined as the ports direction register to use
-#define __CKEYPADMATRIX_C__ -1
-#undef __INCLUDED_CKEYPADMATRIX__
-#endif
-
-#ifndef KP_COLUMN_PIN_MSK
-//#warning ckeypadMatrix.h: KP_COLUMN_PIN_MSK must be defined to use. Example: (1 << 3 | 1 << 4...
-#define __CKEYPADMATRIX_C__ -1
-#undef __INCLUDED_CKEYPADMATRIX__
-#endif
-
-#ifndef KP_ROW_PIN_MSK
-//#warning ckeypadMatrix.h: KP_ROW_PIN_MSK must be defined to use. Example: (1 << 3 | 1 << 4...)
 #define __CKEYPADMATRIX_C__ -1
 #undef __INCLUDED_CKEYPADMATRIX__
 #endif
